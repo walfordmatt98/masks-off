@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masks Off</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#0a3b2c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Masks Off">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,700;1,6..96,500&family=Hanken+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one centred column per screen, with a fixed Game / Chats bar along the bottom.
+   One committed look: a candlelit hall, deep emerald ground, parchment text, gold for action. */
+:root{
+  --bg:#0a3b2c; --bg-night:#031a12; --surface:#0f4a38; --surface-2:#165a45; --line:#2f7a60;
+  --fg:#f6f1e1; --muted:#b4d4c4; --brass:#e2b94b; --brass-ink:#1a1405; --wine:#ff8396; --sage:#8fe3b4;
+  --font-display:'Bodoni Moda','Didot','Times New Roman',serif;
+  --font-body:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.5;padding-inline:16px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);transition:background .6s;-webkit-tap-highlight-color:transparent}
+body.has-nav{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom,0px))}
+body[data-night]{background:var(--bg-night)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.wrap{max-width:36rem;margin-inline:auto;padding-block:1rem 1.5rem;display:flex;flex-direction:column;gap:1rem}
+.top{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+#splash{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;transition:opacity .4s;
+  /* the picture's top edge colours carry on upward, so a tall screen stays seamless and the cloak is never stretched */
+  background:linear-gradient(to right,#796518,#816c1a,#88711b,#8b741a,#8c751b,#8c741b,#87711a,#806b19,#7a671a)}
+#splash.out{opacity:0;pointer-events:none}
+#splash img{display:block;width:100%;max-width:640px;height:auto;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16%);mask-image:linear-gradient(to bottom,transparent 0,#000 16%)}
+.brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-weight:700;font-size:1.35rem;color:var(--brass)}
+.brand svg{display:block}
+.row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:.75rem;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:.75rem;min-width:0}
+.card.host{border-style:dashed;border-color:var(--brass)}
+.card.deathrow{border-color:var(--wine)}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:2rem} h2{font-size:1.4rem} h3{font-size:1.05rem}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:.88rem}
+.label{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.say{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.1rem 1.2rem;display:flex;flex-direction:column;gap:.5rem}
+.say .text{font-family:var(--font-display);font-style:italic;font-weight:500;font-size:1.4rem;line-height:1.3;text-wrap:pretty}
+.code{font-family:var(--font-mono);font-size:3rem;letter-spacing:.3em;color:var(--brass);padding-left:.3em}
+.btn{min-height:46px;padding:.6rem 1.1rem;border-radius:8px;border:1px solid var(--brass);background:var(--brass);color:var(--brass-ink);font-weight:700;cursor:pointer}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--muted)}
+.btn.danger{background:transparent;color:var(--wine);border-color:var(--wine)}
+.btn.small{min-height:36px;padding:.3rem .7rem;font-size:.9rem}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.field{display:flex;flex-direction:column;gap:.35rem}
+input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.7rem .8rem;min-height:46px;width:100%}
+input[type=text]:disabled{opacity:.5}
+input.codein{font-family:var(--font-mono);font-size:1.6rem;letter-spacing:.3em;text-transform:uppercase;text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:.45rem}
+.chip{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .75rem;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:.92rem}
+.chip.me{border-color:var(--brass)}
+.chip.dead{color:var(--muted);border-style:dashed;background:transparent}
+.chip.dead .nm{text-decoration:line-through}
+.chip.shield{border-color:var(--sage)}
+.chip.row{border-color:var(--wine)}
+.tag{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase}
+.tag.t{color:var(--wine)} .tag.f{color:var(--sage)} .tag.s{color:var(--sage)}
+.grid{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr))}
+.pick{min-height:56px;padding:.5rem .75rem;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;text-align:left;font-weight:500;overflow-wrap:anywhere}
+.pk{display:flex;align-items:center;gap:.5rem}
+.pick:hover{border-color:var(--muted)}
+.pick:disabled{opacity:.4;cursor:not-allowed}
+.pick[aria-pressed=true]{border-color:var(--brass);background:rgba(226,185,75,.2);box-shadow:inset 0 0 0 1px var(--brass)}
+.pick.murder[aria-pressed=true]{border-color:var(--wine);background:rgba(255,131,150,.2);box-shadow:inset 0 0 0 1px var(--wine)}
+.list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.list li{display:flex;justify-content:space-between;gap:.75rem;align-items:center;padding:.5rem .1rem;border-bottom:1px solid var(--line);min-width:0}
+.list li:last-child{border-bottom:0}
+.nm{overflow-wrap:anywhere;min-width:0}
+.pot{font-family:var(--font-mono);font-size:2.2rem;color:var(--brass);font-variant-numeric:tabular-nums}
+.timer{font-family:var(--font-mono);font-size:2.2rem;color:var(--brass);font-variant-numeric:tabular-nums}
+.peek{width:100%;min-height:150px;border-radius:10px;border:1px dashed var(--brass);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:1rem;text-align:center;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.peek .big{font-family:var(--font-display);font-size:2.2rem;font-weight:700}
+.peek.t{border-color:var(--wine)} .peek.t .big{color:var(--wine)}
+.peek.f{border-color:var(--sage)} .peek.f .big{color:var(--sage)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--brass)}
+.ok{color:var(--sage)} .bad{color:var(--wine)}
+.night{text-align:center;padding-block:3rem;background:transparent;border-color:var(--line)}
+.night h2{color:var(--muted)}
+.notice{background:rgba(226,185,75,.12);border:1px solid var(--brass);border-radius:10px;padding:.8rem 1rem}
+.dot{display:inline-block;min-width:1.25rem;padding:0 .4rem;border-radius:999px;background:var(--wine);color:#fff;font-size:.75rem;line-height:1.25rem;text-align:center;font-weight:700}
+
+/* bottom bar */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:4;background:var(--bg);border-top:1px solid var(--line);padding:.5rem 16px calc(.5rem + env(safe-area-inset-bottom,0px));transition:background .6s}
+body[data-night] .nav{background:var(--bg-night)}
+.navin{max-width:36rem;margin-inline:auto;display:flex;gap:.5rem}
+.navbtn{flex:1;min-height:48px;border-radius:8px;border:1px solid var(--line);background:transparent;cursor:pointer;font-weight:500;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.navbtn[aria-selected=true]{border-color:var(--brass);color:var(--brass)}
+
+/* chats */
+.chead{display:flex;align-items:center;gap:.75rem;min-width:0}
+.chead .ctitles{min-width:0;flex:1}
+.chead h3{overflow-wrap:anywhere}
+.crow{display:flex;flex-direction:column;gap:.2rem;text-align:left;width:100%;padding:.7rem .85rem;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-width:0}
+.crow:hover{border-color:var(--muted)}
+.ctop{display:flex;align-items:center;gap:.5rem;min-width:0}
+.cname{overflow-wrap:anywhere;min-width:0;flex:1}
+.cprev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msgs{display:flex;flex-direction:column;gap:.2rem;height:calc(100vh - 17rem);height:calc(100dvh - 17rem);min-height:12rem;overflow-y:auto;padding:.25rem}
+.mrow{display:flex;align-items:flex-end;gap:.4rem;max-width:100%}
+.mrow.mine{justify-content:flex-end}
+.mrow .av,.mrow .avsp{flex:none}
+.mcol{display:flex;flex-direction:column;min-width:0;max-width:78%}
+.mrow.mine .mcol{align-items:flex-end}
+.msg{background:#e6e8e7;color:#111;border-radius:18px;padding:.45rem .8rem;overflow-wrap:anywhere;width:fit-content}
+.msg.mine{background:#17825b;color:#fff}
+.mname{font-size:.66rem;color:var(--muted);margin:.1rem .5rem 0;line-height:1.2}
+.msg.sys{align-self:center;background:transparent;color:var(--muted);font-style:italic;text-align:center;font-size:.9rem;padding:.1rem .4rem}
+.av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;object-fit:cover;background:var(--brass);color:var(--brass-ink);font-weight:700;overflow:hidden;flex:none}
+.photo{display:flex;align-items:center;gap:.8rem}
+.photobtn{width:84px;height:84px;border-radius:50%;border:2px dashed var(--brass);background:var(--surface-2);color:var(--brass);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:.4rem;cursor:pointer;font-size:.75rem;line-height:1.2;font-weight:700;text-align:center;flex:none}
+.photobtn img{width:100%;height:100%;object-fit:cover;display:block}
+.compose{display:flex;gap:.5rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);background:var(--fg);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-weight:500;z-index:5}
+body.has-nav .toast{bottom:calc(5.75rem + env(safe-area-inset-bottom,0px))}
+@media (prefers-reduced-motion:reduce){body,.nav{transition:none}}
+</style>
+</head>
+<body>
+<div id="splash" aria-hidden="true"><img src="/icons/cloak.jpg" alt=""></div>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span id="logo"></span>Masks Off</div>
+    <div class="row"><button id="voiceBtn" class="btn ghost small" hidden>Host voice: off</button><button id="leaveBtn" class="btn ghost small" hidden>Leave</button></div>
+  </div>
+  <main id="game" class="stack"></main>
+  <section id="chats" class="stack" hidden>
+    <div id="chatlist" class="stack"></div>
+    <div id="chatnew" class="stack" hidden></div>
+    <div id="chatconv" class="stack" hidden>
+      <div class="chead">
+        <button id="cback" class="btn ghost small">‹ Chats</button>
+        <div class="ctitles"><h3 id="ctitle"></h3><p id="csub" class="muted small"></p></div>
+      </div>
+      <div id="msgs" class="msgs" role="log" aria-live="polite"></div>
+      <p id="cnote" class="muted small"></p>
+      <div class="compose">
+        <input id="cin" type="text" maxlength="300" autocomplete="off" placeholder="Message" enterkeyhint="send" aria-label="Message">
+        <button id="csend" class="btn">Send</button>
+      </div>
+    </div>
+  </section>
+</div>
+<nav id="nav" class="nav" aria-label="Main" hidden>
+  <div class="navin">
+    <button id="nav-game" class="navbtn" aria-selected="true">Game</button>
+    <button id="nav-chats" class="navbtn" aria-selected="false">Chats <span id="nav-dot" class="dot" hidden></span></button>
+  </div>
+</nav>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s);};
+function el(tag,props){
+  var n=document.createElement(tag);
+  if(props)for(var k in props){var v=props[k];
+    if(v==null||v===false)continue;
+    if(k==='class')n.className=v;
+    else if(k==='text')n.textContent=v;
+    else if(k.slice(0,2)==='on')n.addEventListener(k.slice(2),v);
+    else n.setAttribute(k,v===true?'':v);}
+  var kids=[].slice.call(arguments,2);
+  (function add(a){a.forEach(function(c){if(c==null||c===false)return;if(Array.isArray(c))return add(c);n.append(c.nodeType?c:document.createTextNode(String(c)));});})(kids);
+  return n;
+}
+var CLOAK='<img src="/icons/icon-192.png" width="30" height="30" alt="" style="display:block;border-radius:7px">';
+$('#logo').innerHTML=CLOAK;
+
+/* ---------- photos ---------- */
+function avatar(id,size){
+  var p=S.V&&S.V.players.find(function(x){return x.id===id;});size=size||28;
+  var st='width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*.45)+'px';
+  if(p&&p.pic)return el('img',{class:'av',style:st,alt:'',loading:'lazy',src:'/api/photo?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token)+'&id='+encodeURIComponent(id)});
+  return el('span',{class:'av',style:st,'aria-hidden':'true'},(p?p.name:'?').slice(0,1).toUpperCase());
+}
+function shrinkPhoto(file){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file),img=new Image();
+    img.onload=function(){
+      var N=144,c=document.createElement('canvas');c.width=N;c.height=N;
+      var w=img.naturalWidth,h=img.naturalHeight,m=Math.min(w,h),ctx=c.getContext('2d');
+      ctx.drawImage(img,(w-m)/2,(h-m)/2,m,m,0,0,N,N); // square crop from the middle
+      URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',0.72));
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('That photo could not be read.'));};
+    img.src=url;
+  });
+}
+function photoPicker(){
+  var btn=el('button',{class:'photobtn',type:'button','aria-label':'Take a photo'});
+  var cam=el('input',{type:'file',accept:'image/*',capture:'user',hidden:true});
+  var lib=el('input',{type:'file',accept:'image/*',hidden:true});
+  var label=el('p',{class:'muted small'});
+  function paint(){
+    btn.replaceChildren(S.photo?el('img',{src:S.photo,alt:'Your photo'}):'Take a photo');
+    label.textContent=S.photo?'Looking good. Tap the photo to retake it.':'Take a photo of your face, or pick one from your library, so the others can see who is talking in the chats.';
+  }
+  function take(input){return function(){
+    var f=input.files&&input.files[0];if(!f)return;
+    shrinkPhoto(f).then(function(d){S.photo=d;store('mo-photo',d);paint();}).catch(function(e){toast(e.message);});
+    input.value='';
+  };}
+  btn.addEventListener('click',function(){cam.click();});
+  cam.addEventListener('change',take(cam));lib.addEventListener('change',take(lib));
+  paint();
+  return el('div',{class:'field'},el('span',{class:'label',text:'Your photo'}),
+    el('div',{class:'photo'},btn,el('div',{class:'stack'},label,
+      el('button',{class:'btn ghost small',type:'button',onclick:function(){lib.click();}},'Choose from photo library'))),cam,lib);
+}
+var CUR='A$'; // Australian dollars. Change this one line to use a different symbol.
+
+/* ---------- state ---------- */
+var S={code:null,token:null,V:null,tab:'game',pending:null,rowSel:[],pk:null,nightMode:'murder',peekUntil:0,roleOpen:false,
+  voice:false,spoken:null,confirm:null,es:null,lastKey:'',
+  chats:{},chatView:null,newSel:[],drafts:{},read:{},readFor:null,fetching:false,pendingOpen:null,pendingTries:0,stick:false};
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}return null;}
+S.photo=store('mo-photo')||''; // the player's own face, shrunk to a small JPEG data URL
+S.code=store('mo-code');S.token=store('mo-token');S.voice=store('mo-voice')==='1';
+function toast(m){var t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true;},4000);}
+function api(path,body){
+  return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})})
+    .then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok)throw new Error(j.error||'Something went wrong.');return j;});});
+}
+function act(type,extra){
+  return api('/api/act',Object.assign({code:S.code,token:S.token,type:type},extra||{})).catch(function(e){toast(e.message);});
+}
+function nick(id){var p=S.V&&S.V.players.find(function(x){return x.id===id;});return p?p.name:'Someone';}
+function B(label,fn,cls,dis){return el('button',{class:'btn'+(cls?' '+cls:''),onclick:fn,disabled:dis},label);}
+function card(){var a=[].slice.call(arguments);return el('div',{class:'card'},a);}
+function bar(p){var i=el('i');i.style.width=Math.max(0,Math.min(100,p))+'%';return el('div',{class:'bar'},i);}
+
+/* ---------- connection ---------- */
+function connect(){
+  if(S.es){S.es.close();S.es=null;}
+  if(!S.code||!S.token)return;
+  if(S.readFor!==S.code){S.readFor=S.code;try{S.read=JSON.parse(store('mo-read-'+S.code)||'{}')||{};}catch(e){S.read={};}}
+  var es=new EventSource('/api/stream?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token));
+  S.es=es;
+  es.addEventListener('state',function(e){S.V=JSON.parse(e.data);onState();if(window.dropSplash)window.dropSplash();});
+  es.addEventListener('msg',function(e){var d=JSON.parse(e.data);onMsg(d.cid,d.m);});
+  es.addEventListener('gone',function(){clearSession('You were removed from the game.');});
+  es.onopen=function(){fetchChats();}; // every (re)connection reloads the chats, so nothing sent while away is missed
+  es.onerror=function(){
+    fetch('/api/state?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token))
+      .then(function(r){if(r.status===404||r.status===401)clearSession('That game is no longer running.');}).catch(function(){});
+  };
+  // draw the game straight away on a refresh instead of waiting for the stream
+  fetch('/api/state?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token))
+    .then(function(r){
+      if(r.status===404||r.status===401){if(S.es===es)clearSession('That game is no longer running.');return null;}
+      return r.ok?r.json():null;})
+    .then(function(v){if(v&&S.es===es&&!S.V){S.V=v;onState();}}).catch(function(){});
+}
+function resetChats(){S.chats={};S.chatView=null;S.newSel=[];S.drafts={};S.pendingOpen=null;S.fetching=false;}
+function clearSession(msg){
+  if(S.es){S.es.close();S.es=null;}
+  S.code=null;S.token=null;S.V=null;S.pk=null;S.lastKey='';S.tab='game';S.readFor=null;S.read={};
+  resetChats();
+  store('mo-code',null);store('mo-token',null);
+  if(msg)toast(msg);
+  onState();
+}
+function enter(j){S.code=j.code;S.token=j.token;store('mo-code',j.code);store('mo-token',j.token);S.V=null;resetChats();connect();}
+
+/* ---------- landing ---------- */
+function landing(){
+  var saved=store('mo-nick')||'';
+  var out=[];
+  out.push(card(el('h1',{text:'Who can you trust?'}),
+    el('p',{class:'muted',text:'A game of secret roles, silent murders and banishment votes, played in person with everyone on their phones. The app is your host.'})));
+  out.push(card(el('h2',{text:'Join a game'}),
+    el('div',{class:'field'},el('label',{for:'jcode',class:'label',text:'Game code'}),
+      el('input',{id:'jcode',type:'text',class:'codein',maxlength:'4',autocomplete:'off',autocapitalize:'characters',placeholder:'ABCD'})),
+    el('div',{class:'field'},el('label',{for:'jnick',class:'label',text:'Your name'}),
+      el('input',{id:'jnick',type:'text',maxlength:'16',autocomplete:'off',value:saved})),
+    photoPicker(),
+    B('Join',function(){
+      var code=$('#jcode').value.trim().toUpperCase(),name=$('#jnick').value.trim();
+      if(code.length!==4||!name)return toast('Enter the four letter code and your name.');
+      if(!S.photo)return toast('Take a photo first.');
+      store('mo-nick',name);
+      api('/api/join',{code:code,name:name,photo:S.photo}).then(enter).catch(function(e){toast(e.message);});
+    })));
+  out.push(card(el('h2',{text:'Host a game'}),
+    el('p',{class:'muted',text:'The host plays too. You will not see any secrets, you only call the banishments and start the nights.'}),
+    el('div',{class:'field'},el('label',{for:'hnick',class:'label',text:'Your name'}),
+      el('input',{id:'hnick',type:'text',maxlength:'16',autocomplete:'off',value:saved})),
+    photoPicker(),
+    B('Create a game',function(){
+      var name=$('#hnick').value.trim();
+      if(!name)return toast('Enter your name.');
+      if(!S.photo)return toast('Take a photo first.');
+      store('mo-nick',name);
+      api('/api/create',{name:name,photo:S.photo}).then(enter).catch(function(e){toast(e.message);});
+    },'ghost')));
+  return out;
+}
+
+/* ---------- shared pieces ---------- */
+function sayCard(){
+  var v=S.V;if(!v.narration)return null;
+  return el('div',{class:'say'},el('span',{class:'label',text:'The Host'}),el('p',{class:'text',text:v.narration.text}),
+    S.voice?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
+}
+function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.rate=.92;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+function roleTag(p){return p.role?el('span',{class:'tag '+(p.role==='traitor'?'t':'f'),text:p.role==='traitor'?'Traitor':'Faithful'}):null;}
+function tableCard(){
+  var v=S.V;
+  var anyShield=v.players.some(function(p){return p.shield;});
+  return card(el('h3',{text:'The table'}),anyShield?el('p',{class:'muted small',text:'A shield protects its holder from murder tonight.'}):null,el('div',{class:'chips'},v.players.map(function(p){
+    var cls='chip'+(p.id===v.you.id?' me':'')+(p.alive?'':' dead')+(p.shield?' shield':'')+(p.row&&p.alive?' row':'');
+    var extra=[];
+    if(p.host)extra.push(el('span',{class:'tag muted',text:'host'}));
+    if(p.shield)extra.push(el('span',{class:'tag s',text:'shield'}));
+    if(p.row&&p.alive)extra.push(el('span',{class:'tag t',text:'death row'}));
+    if(!p.alive)extra.push(el('span',{class:'tag muted',text:p.deathHow==='banished'?'banished':'murdered'}));
+    if(!p.alive||v.phase==='ended')extra.push(roleTag(p));
+    return el('span',{class:cls},avatar(p.id,22),el('span',{class:'nm',text:p.name}),extra);
+  })));
+}
+function deathRowCard(){
+  var v=S.V;if(!v.deathRow||!v.deathRow.length)return null;
+  var mine=v.deathRow.indexOf(v.you.id)>=0;
+  return el('div',{class:'card deathrow'},el('span',{class:'label',text:'Death row'}),
+    el('div',{class:'chips'},v.deathRow.map(function(id){return el('span',{class:'chip row'+(id===v.you.id?' me':'')},nick(id));})),
+    el('p',{class:'muted small',text:'The next murder will be one of these players, unless a shield protects them.'+(mine&&v.you.alive?' You are on death row.':'')}));
+}
+function rolesList(){
+  var v=S.V;
+  return card(el('h3',{text:'Who was who'}),el('ul',{class:'list'},v.players.map(function(p){
+    return el('li',null,el('span',{class:'nm',text:p.name+(p.alive?'':(p.deathHow==='banished'?' (banished)':' (murdered)'))}),
+      el('span',{class:p.role==='traitor'?'bad':'ok',text:p.role==='traitor'?'Traitor':'Faithful'}));
+  })));
+}
+function tallyCard(t){
+  if(!t||!t.counts)return null;
+  var ids=Object.keys(t.counts).sort(function(a,b){return t.counts[b]-t.counts[a];});
+  return card(el('h3',{text:'The votes'}),
+    ids.length?el('ul',{class:'list'},ids.map(function(id){return el('li',null,el('span',{class:'nm',text:nick(id)}),el('strong',{text:String(t.counts[id])}));})):el('p',{class:'muted',text:'No votes were cast.'}),
+    t.ballots&&t.ballots.length?el('p',{class:'muted small',text:t.ballots.map(function(b){return nick(b.v)+' → '+nick(b.t);}).join('  ·  ')}):null);
+}
+function roleKids(){
+  var me=S.V.you,t=me.role==='traitor';
+  var mates=(S.V.mates||[]).filter(function(id){return id!==me.id;}).map(nick);
+  return [el('span',{class:'label',text:'You are'}),el('span',{class:'big',text:t?'A Traitor':'Faithful'}),
+    t?el('span',{class:'muted',text:mates.length?'With '+mates.join(', '):'You are the only Traitor'}):null];
+}
+function peekBox(){
+  var me=S.V.you,t=me.role==='traitor',open=Date.now()<S.peekUntil;
+  if(!me.role)return el('p',{class:'muted',text:'Your role is on its way…'});
+  var kids=open?roleKids()
+    :[el('span',{class:'label',text:'Tap to reveal your role'}),el('span',{class:'big',text:'●●●●'}),el('span',{class:'muted small',text:'It hides again after four seconds'})];
+  return el('button',{class:'peek'+(open?(t?' t':' f'):''),onclick:function(){S.peekUntil=Date.now()+4000;rebuild();setTimeout(rebuild,4100);},'aria-label':'Show my role for four seconds'},kids);
+}
+function money(c){return CUR+(c/100).toLocaleString('en-AU',{minimumFractionDigits:c%100?2:0,maximumFractionDigits:2});}
+function potCard(){
+  var p=S.V.pot;if(!p)return null;
+  var by={};p.entries.forEach(function(e){by[e.round]=(by[e.round]||0)+e.cents;});
+  var rounds=Object.keys(by);
+  return card(el('span',{class:'label',text:'The pot'}),el('div',{class:'pot',text:money(p.total)}),
+    el('p',{class:'muted small',text:rounds.length?rounds.map(function(r){return 'Round '+r+': '+money(by[r]);}).join('  ·  '):'Nothing earned yet.'}));
+}
+
+/* ---------- phases ---------- */
+function build(){
+  var v=S.V,me=v.you,P=v.phase,out=[];
+  out.push(el('div',{class:'row between'},el('span',{class:'label',text:'Game '+v.code}),el('span',{class:'label',text:me.name+(me.host?' · host':'')})));
+  if(!me.alive&&P!=='lobby'&&P!=='ended'){
+    out.push(card(el('h3',{text:me.deathHow==='banished'?'You were banished':'You were murdered'}),
+      el('p',{class:'muted',text:'You can no longer vote or post in the table chat. You can still read it, and you can talk with the other banished and murdered players in the Chats tab.'})));
+  }
+  if(P!=='lobby'&&P!=='night'&&P!=='ended'){var sc=sayCard();if(sc)out.push(sc);}
+  var f=PHASES[P];if(f)f(v,out);
+  if(me.host&&P!=='ended')out.push(hostPanel());
+  if(P!=='lobby'&&P!=='night'&&P!=='ended')out.push(deathRowCard());
+  if(P!=='lobby'&&P!=='night')out.push(potCard());
+  if(P!=='lobby'&&P!=='night')out.push(tableCard());
+  return out;
+}
+function toggleRow(id){
+  var i=S.rowSel.indexOf(id);
+  if(i>=0)S.rowSel.splice(i,1);else if(S.rowSel.length<S.V.night.traitor.rowSize)S.rowSel.push(id);
+  rebuild();
+}
+function pickText(x){
+  if(x.action==='row')return 'death row '+(x.targets||[]).map(nick).join(', ');
+  return x.action+' '+nick(x.target);
+}
+var PHASES={
+  lobby:function(v,out){
+    var n=v.players.length;
+    out.push(card(el('span',{class:'label',text:'Game code'}),el('div',{class:'code',text:v.code}),
+      el('p',{class:'muted',text:'Everyone opens this page on their phone, taps Join and enters the code.'})));
+    out.push(card(el('h3',{text:n+(n===1?' player':' players')+' in the lobby'}),
+      el('div',{class:'chips'},v.players.map(function(p){return el('span',{class:'chip'+(p.id===v.you.id?' me':'')},avatar(p.id,24),p.name,p.host?el('span',{class:'tag muted',text:'host'}):null,
+        (v.you.host&&!p.host)?el('button',{class:'btn ghost small',onclick:function(){act('kick',{id:p.id});},'aria-label':'Remove '+p.name},'×'):null);})),
+      el('p',{class:'muted',text:'With '+n+' players there will be '+v.traitorTotal+(v.traitorTotal===1?' Traitor.':' Traitors.')+' The app picks them in secret.'}),
+      n>15?el('p',{class:'muted small',text:'With more than 15 players the Traitors may also put players on death row.'}):null,
+      v.you.host?[B('Deal the roles and begin',function(){act('start');},'',n<4),n<4?el('p',{class:'muted small',text:'Four players are needed to start.'}):null]
+        :el('p',{class:'muted',text:'Waiting for the host to begin.'})));
+  },
+  roles:function(v,out){
+    var ready=v.players.filter(function(p){return p.ready;}).length,mine=v.players.find(function(p){return p.id===v.you.id;}).ready;
+    var kids=[el('h3',{text:'Your role'})];
+    if(!v.you.role)kids.push(el('p',{class:'muted',text:'Your role is on its way…'}));
+    else if(mine){
+      kids.push(el('p',{class:'ok',text:'Ready. Waiting for the others.'}),peekBox());
+    }else if(!S.roleOpen){
+      kids.push(el('p',{text:'Before you look, get somewhere private and make sure no one can see your screen.'}),
+        B('I am somewhere private. Show my role',function(){S.roleOpen=true;rebuild();}));
+    }else{
+      kids.push(el('div',{class:'peek '+(v.you.role==='traitor'?'t':'f')},roleKids()),
+        B('Hide it. I have seen my role',function(){S.roleOpen=false;act('ready');}));
+    }
+    kids.push(el('p',{class:'muted small',text:ready+' of '+v.players.length+' players are ready.'}));
+    out.push(card(kids));
+  },
+  day:function(v,out){
+    out.push(card(el('h3',{text:'Day '+v.round}),v.endsAt?el('div',{class:'timer','data-ends':v.endsAt}):null,
+      el('p',{class:'muted',text:'Talk it out. The host will call the banishment.'}),peekBox()));
+  },
+  banish:function(v,out){
+    var b=v.ban,me=v.you,canVote=me.alive&&b.voters.indexOf(me.id)>=0,voted=b.voted.indexOf(me.id)>=0;
+    var shielded=v.players.filter(function(p){return p.shield;}).map(function(p){return p.name;});
+    var kids=[el('h3',{text:b.final?'The final vote':b.rev?'Vote again':'Who is a Traitor?'})];
+    if(shielded.length)kids.push(el('p',{class:'ok small',text:'Shields (cannot be murdered tonight): '+shielded.join(', ')}));
+    if(b.rev)kids.push(el('p',{class:'muted',text:'On the ballot: '+b.candidates.map(nick).join(', ')}));
+    if(canVote&&!voted){
+      kids.push(el('p',{class:'muted',text:'Tap a name, then lock in your vote. You cannot change it afterwards.'}));
+      kids.push(el('div',{class:'grid'},b.candidates.filter(function(id){return id!==me.id;}).map(function(id){
+        return el('button',{class:'pick','aria-pressed':String(S.pending===id),onclick:function(){S.pending=id;rebuild();}},nick(id));})));
+      kids.push(B('Lock in my vote',function(){act('vote',{target:S.pending});},'',!S.pending));
+    }else if(voted){kids.push(el('p',{class:'ok',text:'Your vote is locked in.'}));}
+    else if(me.alive){kids.push(el('p',{class:'muted',text:'You are on the ballot. The others are voting.'}));}
+    else kids.push(el('p',{class:'muted',text:'You cannot vote any more.'}));
+    kids.push(el('p',{class:'muted small',text:b.voted.length+' of '+b.voters.length+' votes are in.'}));
+    kids.push(bar(b.voted.length/Math.max(1,b.voters.length)*100));
+    out.push(card(kids));
+    if(b.rev)out.push(tallyCard(v.tally));
+  },
+  reveal:function(v,out){
+    var r=v.rv,cur=r.queue[r.revealed.length],mine=cur===v.you.id;
+    out.push(card(el('h3',{text:'Reveal your votes'}),
+      mine?[el('p',{text:'It is your turn. Tap to show who you voted for.'}),B('Reveal my vote',function(){act('revealVote');})]
+          :el('p',{class:'muted',text:cur?nick(cur)+' reveals next.':'All votes are shown.'}),
+      bar(r.queue.length?r.revealed.length/r.queue.length*100:0),
+      r.revealed.length?el('ul',{class:'list'},r.revealed.map(function(x){return el('li',null,el('span',{class:'nm',text:nick(x.v)}),el('span',{text:'→ '+nick(x.t)}));})):null));
+  },
+  banished:function(v,out){
+    var ev=v.event||{},out1=ev.type==='banished',me=v.you;
+    var kids=[el('h3',{text:out1?nick(ev.id)+' is banished':'No one is banished'})];
+    if(out1&&ev.done&&ev.show)kids.push(el('p',{class:ev.role==='traitor'?'bad':'ok',text:'They were '+(ev.role==='traitor'?'a Traitor.':'Faithful.')}));
+    if(out1&&ev.chance)kids.push(el('p',{class:'muted',text:'The table was still split, so chance decided.'}));
+    if(out1&&!ev.show)kids.push(el('p',{class:'muted',text:'Roles are no longer revealed.'}));
+    if(out1&&ev.show&&!ev.done){
+      if(ev.id===me.id){kids.push(el('p',{text:'Show the table who you really were.'}));kids.push(B('Reveal my role',function(){act('revealRole');}));}
+      else kids.push(el('p',{class:'muted',text:'Waiting for '+nick(ev.id)+' to reveal their role.'}));
+    }
+    out.push(card(kids));out.push(tallyCard(v.tally));
+  },
+  night:function(v,out){
+    var me=v.you,n=v.night||{},t=n.traitor;
+    if(t&&me.alive){
+      if(t.step==='choose'){
+        var mates=v.mates.filter(function(id){return id!==me.id&&v.players.find(function(p){return p.id===id;}).alive;});
+        var isRow=t.kind==='row';
+        var mode=isRow?((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'row')
+                       :(!t.canMurder?'recruit':((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'murder'));
+        var mine=t.picks.find(function(x){return x.id===me.id;});
+        var kids=[el('h2',{text:'Take off your mask'}),
+          el('p',{class:'muted',text:mates.length?'Your fellow Traitors: '+mates.map(nick).join(', ')+'. Decide together, silently, with looks and gestures.':'You are the only Traitor left. Choose alone.'})];
+        if(t.recruitAllowed&&(isRow||t.canMurder)){
+          kids.push(el('p',{class:'muted',text:'You may recruit tonight instead. The chosen player becomes a Traitor if they accept. The table is told that no one died.'}));
+          kids.push(el('div',{class:'row'},
+            el('button',{class:'pick murder','aria-pressed':String(mode!=='recruit'),onclick:function(){S.nightMode='murder';rebuild();}},isRow?'Death row':'Murder'),
+            el('button',{class:'pick','aria-pressed':String(mode==='recruit'),onclick:function(){S.nightMode='recruit';rebuild();}},'Recruit')));
+        }else if(!isRow&&!t.canMurder){
+          kids.push(el('p',{class:'muted',text:'Everyone you could murder is protected tonight, so you can only recruit. The table is told that no one died.'}));
+        }
+        if(mode==='row'){
+          if(!S.rowSel.length&&mine&&mine.targets)S.rowSel=mine.targets.slice();
+          kids.push(el('p',{class:'muted',text:'Choose '+t.rowSize+' players for death row. You may choose Traitors, even yourself, to throw suspicion. The next murder has to be one of them. Everyone will be told who is on death row.'}));
+          kids.push(el('div',{class:'grid'},v.players.filter(function(p){return p.alive;}).map(function(p){
+            var on=S.rowSel.indexOf(p.id)>=0,mate=v.mates.indexOf(p.id)>=0;
+            return el('button',{class:'pick murder','aria-pressed':String(on),disabled:!on&&S.rowSel.length>=t.rowSize,onclick:function(){toggleRow(p.id);}},
+              p.name,p.id===me.id?el('span',{class:'tag muted',text:' you'}):mate?el('span',{class:'tag t',text:' Traitor'}):null);})));
+          kids.push(B('Lock in death row ('+S.rowSel.length+' of '+t.rowSize+')',function(){act('nightPick',{action:'row',targets:S.rowSel.slice()});},'',S.rowSel.length!==t.rowSize));
+        }else{
+          var murder=mode==='murder';
+          var targets=v.players.filter(function(p){
+            if(!p.alive||v.mates.indexOf(p.id)>=0)return false;
+            return !(murder&&t.rowIds&&t.rowIds.indexOf(p.id)<0);});
+          if(S.pending===null&&mine&&mine.target)S.pending=mine.target;
+          var pend=v.players.find(function(p){return p.id===S.pending;});
+          if(murder&&pend&&(pend.shield||(t.rowIds&&t.rowIds.indexOf(pend.id)<0)))S.pending=null;
+          if(murder&&t.rowIds)kids.push(el('p',{class:'muted',text:'Death row is in force. You can only murder a player on death row.'}));
+          if(murder&&targets.some(function(p){return p.shield;}))kids.push(el('p',{class:'muted small',text:'Players with a shield cannot be murdered.'}));
+          kids.push(el('div',{class:'grid'},targets.map(function(p){
+            var blocked=murder&&p.shield;
+            return el('button',{class:'pick'+(murder?' murder':''),disabled:blocked,'aria-pressed':String(S.pending===p.id),onclick:function(){S.pending=p.id;rebuild();}},p.name,p.shield?el('span',{class:'tag s',text:' shield'}):null);})));
+          kids.push(B(murder?'Lock in murder':'Lock in recruit',function(){act('nightPick',{action:mode,target:S.pending});},'',!S.pending));
+        }
+        kids.push(el('p',{class:'muted small',text:t.picks.length+' of '+t.needed+' Traitors have chosen. You all need to choose the same.'}));
+        if(t.picks.length)kids.push(el('p',{class:'muted small',text:t.picks.map(function(x){return nick(x.id)+': '+pickText(x);}).join('  ·  ')}));
+        out.push(card(kids));
+      }else if(t.step==='none'){
+        out.push(card(el('h2',{text:'Take off your mask'}),
+          el('p',{class:'muted',text:t.rowIds?'Nobody on death row can be murdered tonight. They are shielded, gone or Traitors. Put your mask back on and wait quietly for the sun to rise.'
+            :'Everyone left holds a shield, so there is nobody to murder tonight. Put your mask back on and wait quietly for the sun to rise.'})));
+      }else if(t.step==='maskOn'){
+        out.push(card(el('h2',{text:'Put your mask back on'}),
+          el('p',{class:'muted',text:'Mask on, eyes closed. Tap below when it is on.'}),
+          t.confirmed?el('p',{class:'ok',text:'Waiting for the other Traitors.'}):B('My mask is on',function(){act('maskOn');}),
+          el('p',{class:'muted small',text:t.confirmCount+' of '+t.needed+' ready.'})));
+      }else{
+        var rt=t.decision&&t.decision.target;
+        out.push(card(el('h2',{text:'Tap '+nick(rt)+' on the shoulder'}),
+          el('p',{class:'muted',text:'Keep your mask on and go and tap them. Then wait quietly for the sun to rise.'})));
+      }
+    }else if(n.recruit){
+      out.push(card(el('h2',{text:'Take off your mask'}),
+        el('p',{text:'The Traitors have chosen you. Join them, or stay Faithful. No one else will know unless you say so.'}),
+        el('div',{class:'row'},B('Join the Traitors',function(){act('recruitReply',{accept:true});}),B('Stay Faithful',function(){act('recruitReply',{accept:false});},'ghost'))));
+    }else{
+      out.push(el('div',{class:'card night'},el('h2',{text:'Masks on'}),el('p',{class:'muted',text:'Close your eyes and keep them closed until the host calls morning.'})));
+    }
+  },
+  morning:function(v,out){
+    var ev=v.event||{};
+    if(ev.type==='murdered')out.push(card(el('h3',{text:nick(ev.id)+' was murdered'})));
+    else if(ev.type==='deathrow')out.push(card(el('h3',{text:'No one died'}),
+      el('p',{class:'muted',text:'But the Traitors have put '+ev.ids.length+' players on death row. The next murder will be one of them, unless a shield protects them.'})));
+    else out.push(card(el('h3',{text:'No one died'})));
+  },
+  final3:function(v,out){
+    var me=v.you,f=v.fin,mine=f.mine;
+    if(!me.alive){out.push(card(el('h3',{text:'The final three decide'}),el('p',{class:'muted',text:'Watch quietly while they choose.'})));return;}
+    out.push(card(el('h3',{text:'The final three'}),
+      el('p',{class:'muted',text:'End the game, and if a Traitor is among you, the Traitors win. Vote one last time, and the final two decide the winner. If any one of you chooses to vote, the vote happens.'}),
+      el('div',{class:'row'},
+        el('button',{class:'pick','aria-pressed':String(mine==='end'),onclick:function(){act('finalChoice',{choice:'end'});}},'End the game'),
+        el('button',{class:'pick murder','aria-pressed':String(mine==='vote'),onclick:function(){act('finalChoice',{choice:'vote'});}},'Vote one last time')),
+      el('p',{class:'muted small',text:f.count+' of 3 have chosen. You can change your choice until everyone has.'})));
+  },
+  ended:function(v,out){
+    var sc=sayCard();if(sc)out.push(sc);
+    out.push(card(el('h2',{text:v.winner==='traitors'?'The Traitors win':v.winner==='faithful'?'The Faithful win':'Game called'}),
+      B('Back to the start',function(){clearSession();},'ghost')));
+    out.push(potCard());
+    out.push(rolesList());
+  }
+};
+
+function confirmBtn(key,label,fn,cls){
+  return S.confirm===key?el('div',{class:'row'},el('span',{class:'muted small',text:'Are you sure?'}),B('Yes',function(){S.confirm=null;fn();},'danger small'),B('No',function(){S.confirm=null;rebuild();},'ghost small'))
+    :B(label,function(){S.confirm=key;rebuild();},cls||'ghost small');
+}
+function hostPanel(){
+  var v=S.V,P=v.phase,k=[el('span',{class:'label',text:'Host controls'})];
+  if(P==='roles'){k.push(B('Begin day 1',function(){act('beginDay');}));}
+  else if(P==='day'){
+    k.push(el('div',{class:'row'},B('3 min',function(){act('timer',{min:3});},'ghost small'),B('5 min',function(){act('timer',{min:5});},'ghost small'),B('10 min',function(){act('timer',{min:10});},'ghost small')));
+    k.push(el('span',{class:'label',text:'Before the banishment: missions'}));
+    k.push(el('div',{class:'field'},el('label',{for:'potin',class:'label',text:'Money earned from this round\'s missions ('+CUR+')'}),
+      el('div',{class:'compose'},el('input',{id:'potin',type:'text',inputmode:'decimal',autocomplete:'off',placeholder:'0'}),
+        B('Add to the pot',function(){
+          var x=$('#potin'),a=parseFloat(String(x.value).replace(/[^0-9.]/g,''));
+          if(!(a>0))return toast('Enter an amount above zero.');
+          act('addPot',{amount:a}).then(function(){x.value='';});}))));
+    if(v.pot&&v.pot.entries.length)k.push(B('Undo the last amount ('+money(v.pot.entries[v.pot.entries.length-1].cents)+')',function(){act('undoPot');},'ghost small'));
+    k.push(el('p',{class:'muted small',text:'Who earned a shield? A shield protects them from murder tonight. Everyone will see it.'}));
+    var held=v.players.filter(function(p){return p.shield;}).map(function(p){return p.id;});
+    k.push(el('div',{class:'chips'},v.players.filter(function(p){return p.alive;}).map(function(p){
+      return el('button',{class:'pick','aria-pressed':String(p.shield),onclick:function(){
+        act('setShields',{ids:p.shield?held.filter(function(i){return i!==p.id;}):held.concat([p.id])});}},p.name);})));
+    k.push(B('Call the banishment',function(){act('callBanish');}));
+  }else if(P==='banish'){
+    k.push(B('Close the vote now',function(){act('closeVote');},'ghost',v.ban.voted.length===0));
+  }else if(P==='reveal'){
+    var cur=v.rv.queue[v.rv.revealed.length];
+    if(cur)k.push(B('Reveal for '+nick(cur),function(){act('revealFor');},'ghost small'));
+  }else if(P==='banished'){
+    var ev=v.event||{};
+    if(ev.type==='banished'&&ev.show&&!ev.done)k.push(B('Reveal role for '+nick(ev.id),function(){act('revealRoleFor');},'ghost small'));
+    else k.push(B({night:'Start the night',day:'Start the next day',final3:'Go to the final three',end:'See the result'}[v.next],function(){act('next');}));
+  }else if(P==='night'){
+    k.push(el('p',{class:'muted small',text:'The app is running the night. Nothing here tells you what the Traitors chose.'}));
+    k.push(confirmBtn('skipnight','Skip the night if someone is stuck',function(){act('forceMorning');}));
+  }else if(P==='morning'){k.push(B('Start day '+(v.round+1),function(){act('beginDay');}));}
+  if(P!=='lobby'&&P!=='ended')k.push(confirmBtn('endearly','End the game early',function(){act('endEarly');}));
+  return el('div',{class:'card host'},k);
+}
+
+/* ---------- chats ----------
+   The server sends the list of chats this phone may read inside the game state (chatPost).
+   The messages themselves are loaded from /api/chats, then arrive one by one as "msg" events. */
+function mergeMsgs(a,b){
+  var seen={},out=[];
+  a.concat(b).forEach(function(m){if(!seen[m.n]){seen[m.n]=1;out.push(m);}});
+  out.sort(function(x,y){return x.n-y.n;});
+  return out.slice(-300);
+}
+function fetchChats(){
+  if(!S.code||!S.token||S.fetching)return;
+  S.fetching=true;
+  fetch('/api/chats?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token))
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      S.fetching=false;
+      if(!S.code)return;
+      if(j){
+        var next={};
+        j.chats.forEach(function(c){var cur=S.chats[c.id];next[c.id]=Object.assign({},c,{msgs:mergeMsgs(cur?cur.msgs:[],c.msgs)});});
+        S.chats=next;
+      }
+      if(S.pendingOpen){
+        if(S.chats[S.pendingOpen]){var id=S.pendingOpen;S.pendingOpen=null;openChat(id);return;}
+        if(S.pendingTries++<5)setTimeout(fetchChats,400);else S.pendingOpen=null;
+      }
+      chatsChanged();
+    })
+    .catch(function(){S.fetching=false;});
+}
+function syncChats(){
+  var ids=Object.keys((S.V&&S.V.chatPost)||{});
+  if(ids.some(function(id){return !S.chats[id];}))fetchChats(); // a chat appeared (a new group, the Traitors chat, the dead chat)
+  var gone=Object.keys(S.chats).filter(function(id){return ids.indexOf(id)<0;});
+  if(gone.length){ // a chat closed because we were taken out of it
+    gone.forEach(function(id){delete S.chats[id];});
+    if(S.chatView&&S.chatView!=='new'&&!S.chats[S.chatView])S.chatView=null;
+    chatsChanged();
+  }
+}
+function onMsg(cid,m){
+  var c=S.chats[cid];
+  if(!c){fetchChats();return;}
+  c.msgs=mergeMsgs(c.msgs,[m]);
+  chatsChanged();
+}
+function chatsChanged(){if(S.tab==='chats')renderChats();else renderNav();}
+function unreadIn(c){
+  var r=S.read[c.id]||0,me=S.V.you.id;
+  return c.msgs.filter(function(m){return m.n>r&&m.from!==me;}).length;
+}
+function unreadTotal(){
+  if(!S.V)return 0;
+  return Object.keys(S.chats).reduce(function(s,id){return s+unreadIn(S.chats[id]);},0);
+}
+function markRead(cid){
+  var c=S.chats[cid];if(!c||!c.msgs.length)return;
+  var last=c.msgs[c.msgs.length-1].n;
+  if((S.read[cid]||0)<last){S.read[cid]=last;store('mo-read-'+S.code,JSON.stringify(S.read));}
+}
+function chatTitle(c){
+  if(c.kind==='all')return 'Table chat';
+  if(c.kind==='traitors')return 'Traitors';
+  if(c.kind==='dead')return 'The dead';
+  if(c.name)return c.name;
+  var me=S.V.you.id,o=c.members.filter(function(id){return id!==me;}).map(nick);
+  return o.join(', ')||'Chat';
+}
+function chatSub(c){
+  if(c.kind==='all')return 'Everyone in the game can read this';
+  if(c.kind==='traitors')return 'Only Traitors can see this. A recruit appears here when they accept.';
+  if(c.kind==='dead')return 'Only banished and murdered players can see this';
+  var me=S.V.you.id;
+  return (c.side==='dead'?'Dead chat. ':'')+'In this chat: '+c.members.map(function(id){return id===me?'you':nick(id);}).join(', ');
+}
+function chatTag(c){
+  if(c.kind==='all')return 'Everyone';
+  if(c.kind==='traitors')return 'Traitors only';
+  if(c.kind==='dead')return 'Dead only';
+  var base=c.members.length===2?'Direct':'Group';
+  return c.side==='dead'?base+' · dead':base;
+}
+function postHint(c){
+  if(c.kind==='all')return 'Banished and murdered players can read this chat but not post.';
+  if(c.kind==='traitors')return 'Only living Traitors can post here.';
+  if(c.kind==='dead')return 'Only banished and murdered players can post here.';
+  return 'You are out of the game, so you can read this chat but no longer post in it.';
+}
+function lastN(c){return c.msgs.length?c.msgs[c.msgs.length-1].n:0;}
+function renderChatList(){
+  var v=S.V,box=$('#chatlist');
+  var order={all:0,traitors:1,dead:2};
+  var cs=Object.keys(S.chats).map(function(id){return S.chats[id];});
+  cs.sort(function(a,b){
+    var pa=order[a.kind],pb=order[b.kind];
+    if(pa!==undefined||pb!==undefined)return (pa===undefined?9:pa)-(pb===undefined?9:pb);
+    return lastN(b)-lastN(a);
+  });
+  var rows=cs.map(function(c){
+    var last=c.msgs.length?c.msgs[c.msgs.length-1]:null,un=unreadIn(c);
+    var prev=last?((last.sys?'':(last.from===v.you.id?'You':(last.name||'Someone'))+': ')+last.text):'No messages yet';
+    var other=(c.kind==='private'&&c.members.length===2)?c.members.filter(function(id){return id!==v.you.id;})[0]:null;
+    return el('button',{class:'crow',onclick:function(){openChat(c.id);}},
+      el('div',{class:'ctop'},other?avatar(other,26):null,el('strong',{class:'cname',text:chatTitle(c)}),el('span',{class:'tag muted',text:chatTag(c)}),un?el('span',{class:'dot',text:String(un)}):null),
+      el('div',{class:'cprev muted small',text:prev}));
+  });
+  var hasPrivate=cs.some(function(c){return c.kind==='private';});
+  box.replaceChildren.apply(box,[
+    el('div',{class:'row between'},el('h2',{text:'Chats'}),S.V.you.alive?B('New chat',function(){S.chatView='new';S.newSel=[];renderChats();},'small'):el('span'))
+  ].concat(rows,[
+    (hasPrivate||!S.V.you.alive)?null:el('p',{class:'muted small',text:'Start a direct message or a group with New chat. Only the people you pick can see it.'})
+  ]).filter(Boolean));
+}
+function renderNewChat(){
+  var v=S.V,me=v.you,box=$('#chatnew'),old=$('#cnname'),nameVal=old?old.value:'';
+  var eligible=v.players.filter(function(p){return p.id!==me.id&&p.alive===me.alive;});
+  S.newSel=S.newSel.filter(function(id){return eligible.some(function(p){return p.id===id;});});
+  var lobby=v.phase==='lobby',n=S.newSel.length;
+  var kind=n===1?'Start direct message':n>1?'Start group chat ('+(n+1)+' people)':'Start chat';
+  var intro=lobby?'Private chats open once the game starts.'
+    :me.alive?'Pick one player for a direct message, or several for a group. Only the people you pick will ever see it.'
+    :'You are out of the game, so you can only start chats with other banished and murdered players.';
+  box.replaceChildren(
+    el('div',{class:'chead'},B('‹ Chats',function(){S.chatView=null;renderChats();},'ghost small'),el('div',{class:'ctitles'},el('h3',{text:'New chat'}))),
+    card(el('p',{class:'muted',text:intro}),
+      eligible.length?el('div',{class:'grid'},eligible.map(function(p){
+        var on=S.newSel.indexOf(p.id)>=0;
+        return el('button',{class:'pick','aria-pressed':String(on),disabled:lobby,onclick:function(){
+          var i=S.newSel.indexOf(p.id);if(i>=0)S.newSel.splice(i,1);else S.newSel.push(p.id);renderNewChat();}},el('span',{class:'pk'},avatar(p.id,28),p.name));}))
+        :el('p',{class:'muted',text:'There is nobody to chat with yet.'}),
+      n>1?el('div',{class:'field'},el('label',{for:'cnname',class:'label',text:'Group name (optional)'}),
+        el('input',{id:'cnname',type:'text',maxlength:'24',autocomplete:'off',value:nameVal})):null,
+      B(kind,function(){
+        var nm=$('#cnname')?$('#cnname').value:'';
+        act('newChat',{members:S.newSel.slice(),name:nm}).then(function(r){
+          if(r&&r.chat){S.newSel=[];openWhenReady(r.chat);}});
+      },'',lobby||n===0)));
+}
+function openWhenReady(cid){
+  if(S.chats[cid]){openChat(cid);return;}
+  S.pendingOpen=cid;S.pendingTries=0;fetchChats();
+}
+function msgNode(m,i,list,c){
+  if(m.sys)return el('div',{class:'msg sys',text:m.text});
+  var me=S.V.you.id,mine=m.from===me,nxt=list[i+1];
+  var last=!nxt||nxt.sys||nxt.from!==m.from; // the last message in a run from one person
+  var many=c.kind!=='private'||c.members.length>2; // names only matter when more than two people could be talking
+  var col=el('div',{class:'mcol'},el('div',{class:'msg'+(mine?' mine':''),text:m.text}),
+    (!mine&&last&&many)?el('div',{class:'mname',text:m.name||nick(m.from)}):null);
+  if(mine)return el('div',{class:'mrow mine'},col);
+  return el('div',{class:'mrow'},last?avatar(m.from,30):el('span',{class:'avsp',style:'width:30px'}),col);
+}
+function renderConv(){
+  var v=S.V,c=S.chats[S.chatView];if(!c)return;
+  $('#ctitle').textContent=chatTitle(c);
+  $('#csub').textContent=chatSub(c);
+  var box=$('#msgs'),near=S.stick||box.scrollHeight-box.scrollTop-box.clientHeight<80;
+  box.replaceChildren.apply(box,c.msgs.map(function(m,i,l){return msgNode(m,i,l,c);}));
+  if(near)box.scrollTop=box.scrollHeight;
+  S.stick=false;
+  var can=!!v.chatPost[c.id];
+  $('#cin').disabled=!can;$('#csend').disabled=!can;
+  $('#cin').placeholder=can?'Message':'You can read but not post';
+  $('#cnote').textContent=can?'':postHint(c);
+  if(!document.hidden)markRead(c.id);
+  renderNav();
+}
+function renderChats(){
+  var v=S.V;if(!v)return;
+  if(S.chatView&&S.chatView!=='new'&&!S.chats[S.chatView])S.chatView=null;
+  var conv=S.chatView&&S.chatView!=='new';
+  $('#chatlist').hidden=S.chatView!==null;
+  $('#chatnew').hidden=S.chatView!=='new';
+  $('#chatconv').hidden=!conv;
+  if(S.chatView===null)renderChatList();
+  else if(S.chatView==='new')renderNewChat();
+  else renderConv();
+  renderNav();
+}
+function saveDraft(){if(S.chatView&&S.chatView!=='new')S.drafts[S.chatView]=$('#cin').value;}
+function openChat(cid){
+  saveDraft();
+  S.chatView=cid;S.stick=true;S.tab='chats';
+  $('#cin').value=S.drafts[cid]||'';
+  showTab();
+}
+function sendMsg(){
+  var inp=$('#cin'),t=inp.value.trim(),cid=S.chatView;
+  if(!t||!cid||cid==='new')return;
+  inp.value='';S.drafts[cid]='';
+  act('chat',{cid:cid,text:t}).then(function(r){if(!r&&S.chatView===cid&&!inp.value)inp.value=t;});
+}
+$('#csend').addEventListener('click',sendMsg);
+$('#cin').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();sendMsg();}});
+$('#cback').addEventListener('click',function(){saveDraft();S.chatView=null;renderChats();});
+
+function renderNav(){
+  var nav=$('#nav');
+  if(!S.V){nav.hidden=true;return;}
+  nav.hidden=false;
+  $('#nav-game').setAttribute('aria-selected',String(S.tab==='game'));
+  $('#nav-chats').setAttribute('aria-selected',String(S.tab==='chats'));
+  var n=unreadTotal(),d=$('#nav-dot');
+  d.hidden=!n;d.textContent=n>99?'99+':String(n);
+}
+function showTab(){
+  if(!S.V)S.tab='game';
+  $('#game').hidden=S.tab!=='game';
+  $('#chats').hidden=S.tab!=='chats';
+  document.body.classList.toggle('has-nav',!!S.V);
+  if(S.tab==='chats')renderChats();else renderNav();
+}
+$('#nav-game').addEventListener('click',function(){saveDraft();S.tab='game';showTab();window.scrollTo(0,0);});
+$('#nav-chats').addEventListener('click',function(){S.tab='chats';showTab();window.scrollTo(0,0);});
+
+/* ---------- render ---------- */
+function rebuild(){S.lastKey='';renderGame();}
+function renderGame(){
+  var g=$('#game'),v=S.V;
+  if(!v&&S.code){
+    var rk='rejoin';if(S.lastKey===rk)return;S.lastKey=rk;
+    g.replaceChildren(card(el('h3',{text:'Getting you back to the table…'}),
+      el('p',{class:'muted',text:'Your place in the game is saved. This only takes a moment.'}),
+      B('Leave this game',function(){clearSession();},'ghost small')));
+    return;
+  }
+  if(!v){
+    if(S.lastKey==='landing')return;S.lastKey='landing';
+    g.replaceChildren.apply(g,landing());return;
+  }
+  var key=JSON.stringify(v)+'|'+S.pending+'|'+S.rowSel.join(',')+'|'+S.nightMode+'|'+S.confirm+'|'+S.roleOpen+'|'+(Date.now()<S.peekUntil);
+  if(key===S.lastKey)return;
+  S.lastKey=key;
+  // keep anything the host is typing when the screen redraws
+  var keep={},act0=document.activeElement,fid=act0&&act0.id&&g.contains(act0)?act0.id:null,sel=null;
+  g.querySelectorAll('input[id]').forEach(function(i){keep[i.id]=i.value;});
+  if(fid&&act0.selectionStart!=null)sel=[act0.selectionStart,act0.selectionEnd];
+  g.replaceChildren.apply(g,build().filter(Boolean));
+  Object.keys(keep).forEach(function(id){var i=document.getElementById(id);if(i)i.value=keep[id];});
+  if(fid){var f=document.getElementById(fid);if(f){f.focus();if(sel&&f.setSelectionRange){try{f.setSelectionRange(sel[0],sel[1]);}catch(e){}}}}
+  tick();
+}
+function onState(){
+  var v=S.V;
+  if(v&&S.pk!==v.pk){S.pk=v.pk;S.pending=null;S.rowSel=[];S.confirm=null;S.lastKey='';}
+  if(!v||v.phase!=='roles')S.roleOpen=false;
+  document.body.toggleAttribute('data-night',!!(v&&v.phase==='night'));
+  $('#leaveBtn').hidden=!v;
+  $('#voiceBtn').hidden=!v;
+  $('#voiceBtn').textContent='Host voice: '+(S.voice?'on':'off');
+  if(v){
+    syncChats();
+    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(S.voice&&v.phase!=='lobby')speak(v.narration.text);}
+  }
+  renderGame();showTab();
+}
+function tick(){
+  document.querySelectorAll('[data-ends]').forEach(function(n){
+    var s=Math.max(0,Math.round((+n.dataset.ends-Date.now())/1000));
+    n.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  });
+}
+setInterval(tick,500);
+$('#voiceBtn').addEventListener('click',function(){
+  S.voice=!S.voice;store('mo-voice',S.voice?'1':'0');
+  if(S.voice)speak('The host will now speak aloud on this phone.');
+  $('#voiceBtn').textContent='Host voice: '+(S.voice?'on':'off');
+});
+$('#leaveBtn').addEventListener('click',function(){
+  var inGame=S.V&&S.V.phase!=='lobby'&&S.V.phase!=='ended';
+  if(inGame&&!S.leaveArmed){S.leaveArmed=true;toast('Tap Leave again to leave a game in progress. You will not be able to return.');setTimeout(function(){S.leaveArmed=false;},4000);return;}
+  api('/api/leave',{code:S.code,token:S.token}).catch(function(){});
+  clearSession();
+});
+
+// coming back to the page (screen woke, tab switched, signal returned) reconnects without any sign-in
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden)return;
+  if(S.code&&S.token)connect();
+  if(S.tab==='chats'&&S.chatView&&S.chatView!=='new'){markRead(S.chatView);renderNav();}
+});
+window.addEventListener('online',function(){if(S.code&&S.token)connect();});
+if(S.code&&S.token)connect();
+onState();
+// while a game is open, ping the server now and then so a free host does not put it to sleep
+setInterval(function(){if(S.code&&S.token)fetch('/healthz',{cache:'no-store'}).catch(function(){});},240000);
+var splashT0=Date.now();
+function dropSplash(){
+  var sp=$('#splash');if(!sp||sp.dataset.gone)return;sp.dataset.gone='1';
+  setTimeout(function(){sp.classList.add('out');setTimeout(function(){sp.hidden=true;},450);},Math.max(0,1100-(Date.now()-splashT0)));
+}
+window.dropSplash=dropSplash;
+if(S.code&&S.token){setTimeout(dropSplash,6000);}else dropSplash(); // with a saved game, wait for the first update
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "masks-off",
+  "version": "1.0.0",
+  "description": "An in-person social deduction party game. The app is the host.",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
