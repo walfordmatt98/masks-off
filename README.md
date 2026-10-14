@@ -117,3 +117,8 @@ night, 0 to 1, default 0.5).
   or murdered they are removed from every direct and group chat, and from then on they can only read the table
   chat and post in the dead chat. A banished Traitor can still read the Traitors chat but not post in it.
 * Minimum four players, maximum thirty.
+
+## Host voice
+Only the host's phone speaks. It starts when the host calls a banishment and stops the moment the night's murder (or death row)
+is revealed, staying quiet through the day and money announcements until the next banishment is called. Tap **Host voice** to
+turn it on or off, pick from the voices installed on that phone, and switch between a slow, deep style and a normal one.

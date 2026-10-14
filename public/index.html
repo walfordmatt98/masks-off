@@ -155,6 +155,11 @@ body.has-nav .toast{bottom:calc(5.75rem + env(safe-area-inset-bottom,0px))}
 .fsGrid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;width:100%;max-width:480px}
 .fsPill{background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:.4rem .8rem;font:inherit;font-size:1.35rem;font-weight:700;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:.5rem;min-height:64px;cursor:pointer;overflow-wrap:anywhere}
 .fsPill{flex-wrap:wrap}
+.fsPill:disabled{opacity:.45;cursor:default}
+.vmov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.vmwin{background:var(--surface);border:1px solid var(--line);border-radius:14px 14px 0 0;padding:1rem;width:100%;max-width:520px;max-height:85vh;overflow:auto;display:flex;flex-direction:column;gap:.7rem}
+.vmlist{display:flex;flex-direction:column;gap:.4rem}
+.vmlist .pick{text-align:left}
 .fsTag{width:100%;text-align:center;font-size:.7rem;opacity:.85;font-weight:400}
 .fs.r .fsPill{background:#52182a;border-color:#8a3248;color:var(--fg)}
 .fs.r .fsPill.on{border-color:var(--wine);background:#6e2338;box-shadow:inset 0 0 0 1px var(--wine)}
@@ -395,10 +400,41 @@ function landing(){
 function sayCard(){
   var v=S.V;if(!v.narration)return null;
   return el('div',{class:'say'},el('span',{class:'label',text:'The Host'}),el('p',{class:'text',text:v.narration.text}),
-    voiceOn()?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
+    (voiceOn()&&v.narration.talk)?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
 }
 function voiceOn(){return !!(S.V&&S.V.you.host&&store('mo-voice')!=='0');}
-function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.rate=.92;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+var PREFER=['Daniel','Arthur','Google UK English Male','Oliver','Aaron','Alex','Fred','Rishi','Gordon','Microsoft George','Microsoft Ryan','Microsoft Guy','Microsoft David'];
+function voiceList(){try{return speechSynthesis.getVoices().filter(function(x){return /^en/i.test(x.lang);}).sort(function(a,b){return a.name<b.name?-1:1;});}catch(e){return [];}}
+function pickVoice(){
+  var all=voiceList(),want=store('mo-vname');
+  var v=all.find(function(x){return x.name===want;});if(v||want==='')return v||null;
+  for(var i=0;i<PREFER.length;i++){v=all.find(function(x){return x.name.indexOf(PREFER[i])===0;});if(v)return v;}
+  return null;
+}
+function speak(t){try{
+  var u=new SpeechSynthesisUtterance(t),v=pickVoice(),d=store('mo-vstyle')!=='n';
+  if(v){u.voice=v;u.lang=v.lang;}
+  u.rate=d?.84:.95;u.pitch=d?.8:1;
+  speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+try{speechSynthesis.addEventListener('voiceschanged',function(){});}catch(e){}
+function voiceMenu(){
+  var ov=el('div',{class:'vmov'}),close=function(){ov.remove();syncVoiceBtn();};
+  function draw(){
+    var all=voiceList(),cur=pickVoice(),on=voiceOn(),dram=store('mo-vstyle')!=='n';
+    ov.replaceChildren(el('div',{class:'vmwin'},
+      el('h3',{text:'Host voice'}),
+      el('div',{class:'row'},
+        B(on?'Voice: on':'Voice: off',function(){store('mo-voice',on?'0':'1');draw();}, on?'':'ghost'),
+        B(dram?'Style: slow and deep':'Style: normal',function(){store('mo-vstyle',dram?'n':'d');draw();speak('Night falls. Everyone, put on your masks and close your eyes.');},'ghost')),
+      el('p',{class:'muted small',text:all.length?'Tap a voice to hear it. These are the voices installed on this phone, and the host phone is the only one that speaks.':'No voices found on this phone yet. Close this and try again in a moment.'}),
+      el('div',{class:'vmlist'},all.map(function(x){
+        return el('button',{class:'pick','aria-pressed':String(!!cur&&cur.name===x.name),onclick:function(){store('mo-vname',x.name);draw();speak('Night falls. Everyone, put on your masks and close your eyes.');}},x.name+' ('+x.lang+')');})),
+      B('Done',close)));
+  }
+  draw();document.body.appendChild(ov);
+  try{speechSynthesis.onvoiceschanged=draw;}catch(e){}
+}
+function syncVoiceBtn(){$('#voiceBtn').textContent='Host voice: '+(voiceOn()?'on':'off');}
 function roleTag(p){return p.role?el('span',{class:'tag '+(p.role==='traitor'?'t':'f'),text:p.role==='traitor'?'Traitor':'Faithful'}):null;}
 function tableCard(){
   var v=S.V;
@@ -799,13 +835,13 @@ function hostFoot(P){
   var v=S.V,out=[];if(!v.you.host)return out;
   return out;
 }
-function roleScreen(role,mates,onTap){
+function roleScreen(role,mates,onTap,red){
   var t=role==='traitor';
   var main=[fsText(t?'Traitor':'Faithful','fsBig')];
   if(mates&&mates.length)main.push(el('p',{class:'fsSub',text:'With '+mates.join(', ')}));
   if(t&&mates&&!mates.length)main.push(el('p',{class:'fsSub',text:'You are the only Traitor'}));
   if(onTap)main.push(el('p',{class:'fsSub',text:'Tap anywhere to hide this'}));
-  return fsScreen(t?'r':'g',main,[],{onclick:onTap});
+  return fsScreen(red&&t?'r':'g',main,[],{onclick:onTap});
 }
 function tapScreen(text,fn){return fsScreen('g',[el('button',{class:'fsTapAll',onclick:fn},fsText(text))],[]);}
 function watchScreen(title,sub){return fsScreen('g',[fsText(title),sub?el('p',{class:'fsSub',text:sub}):null],[]);}
@@ -879,8 +915,7 @@ function fullScreen(v){
     }
     if(n.step!=='choose'||!t||!me.alive)return null; // everyone else's phone stays as it is
     // the Traitors' red vote
-    var isRow=t.kind==='row',mode=isRow?((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'row')
-      :(!t.canMurder?'recruit':((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'murder'));
+    var isRow=t.kind==='row',mode=(t.recruitAllowed&&S.nightMode==='recruit')?'recruit':(isRow?'row':'murder');
     var mine=t.picks.find(function(x){return x.id===me.id;});
     var lockedMe=t.locks.indexOf(me.id)>=0;
     var pickersOf=function(id){return t.picks.filter(function(x){return x.id!==me.id&&(x.target===id||(x.targets&&x.targets.indexOf(id)>=0));}).map(function(x){return nick(x.id);});};
@@ -888,21 +923,22 @@ function fullScreen(v){
     if(mode==='row')main.push(el('p',{class:'fsSub',text:'Pick '+t.rowSize+' players, Traitors and yourself included. The next murder must be one of them.'}));
     else if(mode==='recruit')main.push(el('p',{class:'fsSub',text:'If they accept they become a Traitor. The table is told that no one died.'}));
     else if(t.rowIds)main.push(el('p',{class:'fsSub',text:'Death row is in force. Only a player on it can be murdered.'}));
+    if(mode==='murder'&&t.noTarget)main.push(el('p',{class:'fsSub',text:'Everyone you could murder is protected tonight. Lock in as normal, so the table cannot tell.'}));
     var cands=v.players.filter(function(p){
       if(!p.alive)return false;
       if(mode==='row')return true;
       if(tm.indexOf(p.id)>=0)return false;
-      return !(mode==='murder'&&((t.rowIds&&t.rowIds.indexOf(p.id)<0)||p.shield));});
+      return !(mode==='murder'&&t.rowIds&&t.rowIds.indexOf(p.id)<0);});
     var mineSel=mine&&mine.action===mode?(mode==='row'?mine.targets:[mine.target]):[];
     main.push(el('div',{class:'fsGrid'},cands.map(function(p){
-      var on=mineSel.indexOf(p.id)>=0,others=pickersOf(p.id);
-      return el('button',{class:'fsPill'+(on?' on':''),onclick:function(){
+      var on=mineSel.indexOf(p.id)>=0,others=pickersOf(p.id),shielded=mode==='murder'&&p.shield;
+      return el('button',{class:'fsPill'+(on?' on':''),disabled:shielded,onclick:function(){
         if(mode==='row'){var s=mineSel.slice(),i=s.indexOf(p.id);if(i>=0)s.splice(i,1);else if(s.length<t.rowSize)s.push(p.id);else return;act('nightPick',{action:'row',targets:s});}
         else act('nightPick',{action:mode,target:p.id});}},
-        pillFace(p.id),nick(p.id)+(p.id===me.id?' (you)':''),others.length?el('span',{class:'fsTag',text:others.join(', ')+(others.length>1?' chose':' chose')}):null);})));
+        pillFace(p.id),nick(p.id)+(p.id===me.id?' (you)':''),shielded?el('span',{class:'fsTag',text:'shield'}):null,others.length?el('span',{class:'fsTag',text:others.join(', ')+(others.length>1?' chose':' chose')}):null);})));
     var lockTxt=lockedMe?'Locked in. Waiting for the other Traitors':t.agreed?'Lock in':tm.length>1?'Waiting for all Traitors to pick the same':'Choose someone';
     return fsScreen('r',main,
-      [t.recruitAllowed&&(isRow||t.canMurder)?el('button',{class:'fsBtn',onclick:function(){S.nightMode=mode==='recruit'?'murder':'recruit';rebuild();}},mode==='recruit'?(isRow?'Back to death row':'Back to murder'):'Choose to recruit'):null,
+      [t.recruitAllowed?el('button',{class:'fsBtn',onclick:function(){S.nightMode=mode==='recruit'?'murder':'recruit';rebuild();}},mode==='recruit'?(isRow?'Back to death row':'Back to murder'):'Choose to recruit'):null,
        el('button',{class:'fsBtn',disabled:lockedMe||!t.agreed,onclick:function(){act('nightLock');}},lockTxt),
        el('p',{class:'fsSub',text:t.locks.length+' of '+t.needed+' locked in. Change your pick any time before everyone locks.'})],{top:true});
   }
@@ -1012,7 +1048,7 @@ function onState(){
   $('#voiceBtn').textContent='Host voice: '+(voiceOn()?'on':'off');
   if(v){
     syncChats();
-    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(voiceOn()&&v.phase!=='lobby')speak(v.narration.text);}
+    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(voiceOn()&&v.narration.talk&&v.phase!=='lobby')speak(v.narration.text);}
   }
   renderGame();showTab();renderFull();
 }
@@ -1023,11 +1059,7 @@ function tick(){
   });
 }
 setInterval(tick,500);
-$('#voiceBtn').addEventListener('click',function(){
-  var on=!voiceOn();store('mo-voice',on?'1':'0');
-  if(on)speak('The host will now speak aloud on this phone.');
-  $('#voiceBtn').textContent='Host voice: '+(on?'on':'off');
-});
+$('#voiceBtn').addEventListener('click',voiceMenu);
 $('#leaveBtn').addEventListener('click',function(){
   var inGame=S.V&&S.V.phase!=='lobby'&&S.V.phase!=='ended';
   if(inGame&&!S.leaveArmed){S.leaveArmed=true;toast('Tap Leave again to leave a game in progress. You will not be able to return.');setTimeout(function(){S.leaveArmed=false;},4000);return;}
