@@ -22,7 +22,7 @@ const STATIC = { // only these files are served, nothing else from the folder
 const FAST = !!process.env.MASKSOFF_FAST; // tests only: shorten the empty-night delay
 const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 30;
-const CUR = 'A$'; // Australian dollars. Change this one line to use a different symbol.
+const CUR = '$'; // the money symbol. Change this one line to use a different one.
 
 /* Death row: only in games that began with more than 15 players, only on a night when more than 12 are still in. */
 const DEATH_ROW_MIN_START = 15;
@@ -78,24 +78,32 @@ const T = {
   day: r => r === 1
     ? 'Welcome to the round table. Among you sit the Faithful, and among you sit Traitors. Talk, accuse and defend yourselves. When the table is ready, the host will call the banishment.'
     : 'Day ' + r + ' begins. Masks are off. Study the faces around you.',
-  timer: m => 'You have ' + m + ' minutes. Use them well.',
   banish: shielded => 'The time has come to choose. Vote on your phone for the player you most suspect.' +
     (shielded.length ? ' ' + list(shielded) + (shielded.length > 1 ? ' hold shields and cannot be murdered tonight.' : ' holds a shield and cannot be murdered tonight.') : ''),
   pot: (add, total) => 'The group has earned ' + moneyWords(add) + '. The pot now stands at ' + moneyWords(total) + '.',
   tie: names => 'The table is split between ' + list(names) + '. Vote again. The tied players cannot vote. The others decide.',
   noVotes: () => 'No one cast a vote. No one is banished.',
-  reveal: () => 'The votes are locked. One by one, tap your screen to show who you voted for.',
+  reveal: () => 'The votes are locked. When you are ready, tap your screen and show the table who you voted for.',
+  tieAnnounce: names => 'We have a tie between ' + list(names) + '.',
   banished: n => n + ' has the most votes and is banished. ' + n + ', tap your screen and show us who you really were.',
   banishedQuiet: n => n + ' has the most votes and is banished. From here on, roles stay hidden.',
   banishedChance: n => 'Still split. Fate decides, and ' + n + ' is banished. ' + n + ', tap your screen and show us who you really were.',
   banishedChanceQuiet: n => 'Still split. Fate decides, and ' + n + ' is banished. From here on, roles stay hidden.',
   role: (n, r) => n + ' was ' + (r === 'traitor' ? 'a Traitor.' : 'Faithful.'),
-  night: () => 'Night falls. Everyone, put on your mask and close your eyes. Traitors, take off your masks and look at your phones.',
-  morningNone: () => 'The sun rises. Masks off, everyone. No one died last night.',
-  morningKill: n => 'The sun rises. Masks off, everyone. Last night the Traitors murdered ' + n + '.',
-  morningRow: names => 'The sun rises. Masks off, everyone. No one died last night. But the Traitors have chosen ' + names.length + ' players for death row: ' + list(names) + '. The next murder will be one of them, unless a shield protects them.',
+  night: () => 'Night falls. Everyone, put on your masks and close your eyes.',
+  nightChoose: () => 'Traitors, remove your masks and choose someone to murder.',
+  maskBack: () => 'Traitors, put your masks back on.',
+  morningMurder: () => 'Everyone, remove your masks. There has been a murder. The murdered player is...',
+  morningKill: n => 'The murdered player is ' + n + '.',
+  morningNone: () => 'Everyone, remove your masks. There has been no murder tonight. What that means, you will never know.',
+  morningRow: () => 'Everyone, remove your masks. There has been no murder tonight. However, four players have been put on death row.',
+  morningRowNames: names => 'The players put on death row are ' + list(names) + '. The next murder will be one of them, unless a shield protects them.',
   final3: () => 'Three remain. Together you decide: end the game here, or vote one last time and take it to a final two. If you all choose to end it and a Traitor is among you, the Traitors win. If any of you votes, one of you leaves, and the last two decide the winner.',
   finalVote: () => 'One of you must leave. Vote on your phone.',
+  finalReveal: () => 'Everyone has chosen. Tap your screen and show the table your choice.',
+  finalEndAll: () => 'You have all chosen to end the game.',
+  finalVoteOn: () => 'At least one of you chose to vote. The vote goes ahead.',
+  endReveal: () => 'The game is over. Tap your screen to reveal who you really are.',
   endT: () => 'A Traitor stands at the end. The Traitors win.',
   endF: () => 'No Traitor remains. The Faithful win.',
   endX: () => 'The host has called the game. Here is the truth.'
@@ -112,7 +120,7 @@ function blankGame(code) {
     phase: 'lobby', seq: 0, round: 0, narration: null, ch: blankChannels(), cn: 0,
     shields: [], pot: [], deathRow: null, votes: {}, candidates: null, rev: 0, final: false, queue: null, ballots: null, revealed: null,
     tally: null, lastEvent: null, night: null, finalChoices: {}, banishCount: 0, startN: 0, recruitFlag: false,
-    endsAt: null, winner: null, clients: new Set(), pending: null
+    endsAt: null, winner: null, tieIds: null, autoAt: null, finalRevealed: null, finalOutcome: null, endReveal: null, clients: new Set(), pending: null
   };
 }
 function makeGame() {
@@ -122,7 +130,7 @@ function makeGame() {
 }
 const PHOTO_RE = /^data:image\/jpeg;base64,([A-Za-z0-9+\/=]+)$/;
 function cleanPhoto(raw) { // a small JPEG sent as a data URL, or nothing
-  if (typeof raw !== 'string' || raw.length > 40000) return null;
+  if (typeof raw !== 'string' || raw.length > 90000) return null;
   const m = PHOTO_RE.exec(raw);
   if (!m) return null;
   const buf = Buffer.from(m[1], 'base64');
@@ -259,12 +267,16 @@ function closeVote(g) {
   g.ballots = bal; g.queue = shuffle(bal.map(b => b.v)); g.revealed = [];
   go(g, 'reveal'); say(g, T.reveal());
 }
-function revealVote(g) {
+function revealVote(g, id) { // everyone shows their vote when they like, in any order
   need(g.phase === 'reveal', 'Not now.');
-  const cur = g.queue[g.revealed.length];
-  if (!cur) return;
-  g.revealed.push(g.ballots.find(b => b.v === cur));
+  need(g.queue.includes(id), 'You did not vote.');
+  if (g.revealed.some(b => b.v === id)) return;
+  g.revealed.push(g.ballots.find(b => b.v === id));
   if (g.revealed.length === g.queue.length) resolveBanish(g);
+}
+function startRevote(g) {
+  g.rev = 1; g.candidates = g.tieIds.slice(); g.votes = {}; g.queue = null; g.ballots = null; g.revealed = null; g.autoAt = null;
+  go(g, 'banish'); say(g, T.tie(g.candidates.map(id => nameOf(g, id))));
 }
 function noBanishment(g, text, tallyDoc) {
   g.tally = tallyDoc; g.lastEvent = { type: 'none', done: true };
@@ -274,9 +286,9 @@ function resolveBanish(g) {
   const t = tally(g.revealed, g.candidates);
   const doc = { counts: t.counts, ballots: g.revealed.slice() };
   if (t.top.length > 1) {
-    if (!g.rev) {
-      g.tally = doc; g.rev = 1; g.candidates = t.top; g.votes = {}; g.queue = null; g.ballots = null; g.revealed = null;
-      go(g, 'banish'); say(g, T.tie(t.top.map(id => nameOf(g, id)))); return;
+    if (!g.rev) { // show the tie to everyone, then the re-vote starts by itself
+      g.tally = doc; g.tieIds = t.top.slice(); g.autoAt = Date.now() + (FAST ? 300 : 7000);
+      go(g, 'tie'); say(g, T.tieAnnounce(t.top.map(id => nameOf(g, id)))); return;
     }
     // tied again after the re-vote: one of the tied players is chosen at random
     g.tally = doc; banishPlayer(g, t.top[rnd(t.top.length)], true); return;
@@ -319,6 +331,8 @@ function proceed(g) {
 }
 
 /* ---------- night ---------- */
+const MASK_WAIT = () => FAST ? 300 : 20000;   // everyone's masks go on, then the Traitors may look
+const BACK_WAIT = () => FAST ? 300 : 15000;   // the Traitors' masks go back on before the table looks up
 const rowAlive = g => g.deathRow ? g.deathRow.ids.filter(id => { const x = byId(g, id); return x && x.alive; }) : [];
 function startNight(g) {
   const A = alive(g);
@@ -334,11 +348,24 @@ function startNight(g) {
   const canMurder = kind === 'row' ? true : murderable.length > 0;
   const fake = tr.length === 0 || (kind === 'murder' && !canMurder && !recruitAllowed); // nothing the Traitors can do tonight
   g.night = {
-    step: 'choose', kind, usedRow, rowIds, traitors: tr, picks: {}, confirms: {}, decision: null,
-    recruitAllowed, canMurder, fake, autoAt: fake ? Date.now() + (FAST ? 300 : 20000 + rnd(15000)) : null
+    step: 'masks', kind, usedRow, rowIds, traitors: tr, picks: {}, locks: {}, decision: null,
+    recruitAllowed, canMurder, fake, nextAt: Date.now() + MASK_WAIT() + (fake ? (FAST ? 0 : 5000 + rnd(10000)) : 0)
   };
   g.recruitFlag = false;
   go(g, 'night'); say(g, T.night());
+}
+/* timed steps of the night; called every second */
+function tickNight(g) {
+  const n = g.night;
+  if (g.phase !== 'night' || !n || !n.nextAt || Date.now() < n.nextAt) return false;
+  n.nextAt = null;
+  if (n.fake) { finishNight(g); return true; }
+  if (n.step === 'masks') { n.step = 'choose'; g.seq++; say(g, T.nightChoose()); return true; }
+  if (n.step === 'maskBack') {
+    if (n.decision.action === 'recruit') { n.step = 'recruit'; g.seq++; return true; }
+    finishNight(g); return true;
+  }
+  return false;
 }
 const pickKey = x => JSON.stringify([x.action, x.target || null, x.targets || null]);
 function nightPick(g, p, b) {
@@ -349,7 +376,7 @@ function nightPick(g, p, b) {
   if (b.action === 'row') {
     need(n.kind === 'row', 'There is no death row to set tonight.');
     const ids = Array.from(new Set((Array.isArray(b.targets) ? b.targets : []).map(String)));
-    need(ids.length === DEATH_ROW_SIZE, 'Choose exactly ' + DEATH_ROW_SIZE + ' players for death row.');
+    need(ids.length <= DEATH_ROW_SIZE, 'Choose exactly ' + DEATH_ROW_SIZE + ' players for death row.');
     need(ids.every(id => { const t = byId(g, id); return t && t.alive; }), 'Only living players can be put on death row.');
     n.picks[p.id] = { action: 'row', targets: ids.slice().sort() };
   } else {
@@ -363,19 +390,23 @@ function nightPick(g, p, b) {
     }
     n.picks[p.id] = { action: b.action, target: t.id };
   }
-  const all = n.traitors.map(id => n.picks[id]);
-  if (all.every(Boolean) && all.every(x => pickKey(x) === pickKey(all[0]))) {
-    n.decision = Object.assign({}, all[0]); n.step = 'maskOn'; n.confirms = {};
-    g.seq++;
-  }
+  n.locks = {}; // any change means the Traitors must agree again
 }
-function maskOn(g, p) {
+const agreed = n => {
+  const all = n.traitors.map(id => n.picks[id]);
+  if (!all.every(Boolean) || !all.every(x => pickKey(x) === pickKey(all[0]))) return null;
+  if (all[0].action === 'row' && all[0].targets.length !== DEATH_ROW_SIZE) return null;
+  return all[0];
+};
+function nightLock(g, p) {
   const n = g.night;
-  need(g.phase === 'night' && n && n.step === 'maskOn' && n.traitors.includes(p.id), 'Not now.');
-  n.confirms[p.id] = true;
-  if (n.traitors.every(id => n.confirms[id])) {
-    if (n.decision.action === 'recruit') { n.step = 'recruit'; g.seq++; }
-    else finishNight(g);
+  need(g.phase === 'night' && n && n.step === 'choose' && !n.fake && n.traitors.includes(p.id), 'Not now.');
+  const d = agreed(n);
+  need(d, 'You can only lock in once every Traitor has picked the same thing.');
+  n.locks[p.id] = true;
+  if (n.traitors.every(id => n.locks[id])) {
+    n.decision = Object.assign({}, d); n.step = 'maskBack'; n.nextAt = Date.now() + BACK_WAIT();
+    g.seq++; say(g, T.maskBack());
   }
 }
 function recruitReply(g, p, accept) {
@@ -390,17 +421,24 @@ function recruitReply(g, p, accept) {
 }
 function finishNight(g) {
   const n = g.night, d = n && n.decision;
-  let killed = null, row = null;
-  if (d && d.action === 'murder') {
-    killed = byId(g, d.target);
-    killed.alive = false; killed.deathHow = 'murdered'; leavePrivateChats(g, killed);
-  }
+  let murdered = null, row = null;
+  if (d && d.action === 'murder') murdered = byId(g, d.target); // dies when the host reveals it
   if (n && n.usedRow) g.deathRow = null; // the death row is spent after the night it applies to
   if (d && d.action === 'row') { g.deathRow = { ids: d.targets.slice(), round: g.round }; g.rowDone = true; /* only once per game */ row = g.deathRow.ids; }
-  g.lastEvent = killed ? { type: 'murdered', id: killed.id } : row ? { type: 'deathrow', ids: row.slice() } : { type: 'none' };
+  g.lastEvent = murdered ? { type: 'murdered', id: murdered.id, revealed: false } : row ? { type: 'deathrow', ids: row.slice(), revealed: false } : { type: 'none' };
   g.night = null; g.shields = [];
   go(g, 'morning');
-  say(g, killed ? T.morningKill(killed.name) : row ? T.morningRow(row.map(id => nameOf(g, id))) : T.morningNone());
+  say(g, murdered ? T.morningMurder() : row ? T.morningRow() : T.morningNone());
+}
+const pendingReveal = g => g.phase === 'morning' && g.lastEvent && (g.lastEvent.type === 'murdered' || g.lastEvent.type === 'deathrow') && !g.lastEvent.revealed;
+function revealMurder(g) { // the host taps: the murder victim, or the death row, appears on every phone
+  need(pendingReveal(g), 'Not now.');
+  const ev = g.lastEvent;
+  if (ev.type === 'deathrow') { ev.revealed = true; say(g, T.morningRowNames(ev.ids.map(id => nameOf(g, id)))); return; }
+  const k = byId(g, ev.id);
+  k.alive = false; k.deathHow = 'murdered'; leavePrivateChats(g, k);
+  ev.revealed = true;
+  say(g, T.morningKill(k.name));
 }
 
 /* ---------- final stages ---------- */
@@ -411,19 +449,48 @@ function startFinal3(g) {
 function finalChoice(g, p, choice) {
   need(g.phase === 'final3' && p.alive, 'Not now.');
   need(choice === 'end' || choice === 'vote', 'Choose to end the game or to vote.');
+  need(!g.finalChoices[p.id], 'Your choice is already locked in.');
   g.finalChoices[p.id] = choice;
   const a = alive(g);
   if (!a.every(x => g.finalChoices[x.id])) return;
-  if (a.every(x => g.finalChoices[x.id] === 'end')) return endGame(g, 'agreed');
+  g.finalRevealed = [];
+  go(g, 'finalreveal'); say(g, T.finalReveal());
+}
+function revealFinal(g, id) { // each of the three shows their choice, in any order
+  need(g.phase === 'finalreveal', 'Not now.');
+  need(g.finalChoices[id], 'You did not choose.');
+  if (g.finalRevealed.includes(id)) return;
+  g.finalRevealed.push(id);
+  const a = alive(g);
+  if (!a.every(x => g.finalRevealed.includes(x.id))) return;
+  g.finalOutcome = a.every(x => g.finalChoices[x.id] === 'end') ? 'end' : 'vote';
+  g.autoAt = Date.now() + (FAST ? 300 : 6000);
+  go(g, 'finalresult'); say(g, g.finalOutcome === 'end' ? T.finalEndAll() : T.finalVoteOn());
+}
+function afterFinalResult(g) {
+  g.autoAt = null;
+  if (g.finalOutcome === 'end') return endGame(g, 'agreed');
+  const a = alive(g);
   g.final = true; g.rev = 0; g.candidates = a.map(x => x.id); g.votes = {}; g.shields = [];
   g.queue = null; g.ballots = null; g.revealed = null;
   go(g, 'banish'); say(g, T.finalVote());
 }
 function endGame(g, reason) {
-  g.winner = reason === 'host' ? null : (alive(g).some(p => p.role === 'traitor') ? 'traitors' : 'faithful');
   g.night = null; g.endsAt = null;
+  if (reason === 'host') { g.winner = null; go(g, 'ended'); say(g, T.endX()); return; }
+  // the players still standing show who they are, then the winner is announced
+  const a = alive(g);
+  g.endReveal = { ids: a.map(p => p.id), done: [], winner: a.some(p => p.role === 'traitor') ? 'traitors' : 'faithful' };
+  go(g, 'endreveal'); say(g, T.endReveal());
+}
+function revealEnd(g, id) {
+  need(g.phase === 'endreveal' && g.endReveal.ids.includes(id), 'Not now.');
+  if (g.endReveal.done.includes(id)) return;
+  g.endReveal.done.push(id); byId(g, id).roleShown = true;
+  if (g.endReveal.done.length < g.endReveal.ids.length) return;
+  g.winner = g.endReveal.winner;
   go(g, 'ended');
-  say(g, g.winner === 'traitors' ? T.endT() : g.winner === 'faithful' ? T.endF() : T.endX());
+  say(g, g.winner === 'traitors' ? T.endT() : T.endF());
 }
 
 /* ---------- actions ---------- */
@@ -441,12 +508,8 @@ function act(g, p, b) {
     }
     case 'ready': need(g.phase === 'roles', 'Not now.'); p.ready = true; return;
     case 'beginDay':
-      hostOnly(); need(g.phase === 'roles' || g.phase === 'morning', 'Not now.'); return beginDay(g);
-    case 'timer': {
-      hostOnly(); need(g.phase === 'day', 'Not now.');
-      const m = Number(b.min); need(m >= 1 && m <= 30, 'Pick between 1 and 30 minutes.');
-      g.endsAt = Date.now() + m * 60000; say(g, T.timer(m)); return;
-    }
+      hostOnly(); need(g.phase === 'roles' || g.phase === 'morning', 'Not now.');
+      need(!pendingReveal(g), 'Reveal the murder first.'); return beginDay(g);
     case 'setShields': {
       hostOnly(); need(g.phase === 'day', 'Shields are set during the day, before the banishment.');
       const ids = Array.isArray(b.ids) ? Array.from(new Set(b.ids)) : [];
@@ -466,15 +529,28 @@ function act(g, p, b) {
     case 'closeVote':
       hostOnly(); need(g.phase === 'banish', 'Not now.'); need(Object.keys(g.votes).length > 0, 'No votes have been cast yet.');
       return closeVote(g);
-    case 'revealVote':
-      need(g.phase === 'reveal' && g.queue[g.revealed.length] === p.id, 'It is not your turn.'); return revealVote(g);
-    case 'revealFor': hostOnly(); return revealVote(g);
+    case 'revealVote': return revealVote(g, p.id);
+    case 'revealFor': {
+      hostOnly(); need(g.phase === 'reveal', 'Not now.');
+      const nx = b.id || g.queue.find(id => !g.revealed.some(x => x.v === id)); return nx && revealVote(g, nx);
+    }
+    case 'revealFinal': return revealFinal(g, p.id);
+    case 'revealFinalFor': {
+      hostOnly(); need(g.phase === 'finalreveal', 'Not now.');
+      const nx = alive(g).map(x => x.id).find(id => !g.finalRevealed.includes(id)); return nx && revealFinal(g, nx);
+    }
+    case 'revealEnd': return revealEnd(g, p.id);
+    case 'revealEndFor': {
+      hostOnly(); need(g.phase === 'endreveal', 'Not now.');
+      const nx = g.endReveal.ids.find(id => !g.endReveal.done.includes(id)); return nx && revealEnd(g, nx);
+    }
     case 'revealRole':
       need(g.lastEvent && g.lastEvent.id === p.id, 'Only the banished player can do that.'); return revealRole(g);
     case 'revealRoleFor': hostOnly(); return revealRole(g);
     case 'next': hostOnly(); return proceed(g);
     case 'nightPick': return nightPick(g, p, b);
-    case 'maskOn': return maskOn(g, p);
+    case 'nightLock': return nightLock(g, p);
+    case 'revealMurder': hostOnly(); return revealMurder(g);
     case 'recruitReply': return recruitReply(g, p, !!b.accept);
     case 'forceMorning': hostOnly(); need(g.phase === 'night', 'Not now.'); return finishNight(g);
     case 'finalChoice': return finalChoice(g, p, b.choice);
@@ -488,7 +564,7 @@ function act(g, p, b) {
 /* ---------- what each phone is allowed to see ---------- */
 function view(g, me) {
   const ended = g.phase === 'ended', isT = me.role === 'traitor';
-  const row = rowAlive(g);
+  const row = pendingReveal(g) ? [] : rowAlive(g);
   const v = {
     code: g.code, phase: g.phase, pk: g.seq, round: g.round,
     you: { id: me.id, name: me.name, role: me.role, alive: me.alive, host: me.id === g.hostId, deathHow: me.deathHow },
@@ -496,7 +572,7 @@ function view(g, me) {
       id: p.id, name: p.name, alive: p.alive, host: p.id === g.hostId, shield: g.shields.includes(p.id), row: row.includes(p.id),
       deathHow: p.deathHow, pic: p.photo ? 1 : 0, role: (ended || p.roleShown) ? p.role : null, ready: p.ready
     })),
-    narration: g.narration, endsAt: g.endsAt, winner: g.winner, startN: g.startN,
+    narration: g.narration, endsAt: null, winner: g.winner, startN: g.startN,
     traitorTotal: traitorCount(g.players.length),
     mates: isT ? g.players.filter(p => p.role === 'traitor').map(p => p.id) : null,
     deathRow: row,
@@ -509,19 +585,27 @@ function view(g, me) {
     v.ban = { candidates: g.candidates, rev: g.rev, final: g.final, voters: voters(g), voted: Object.keys(g.votes), myVote: g.votes[me.id] || null };
     if (g.rev) v.tally = g.tally;
   }
-  if (g.phase === 'reveal') v.rv = { queue: g.queue, revealed: g.revealed };
+  if (g.phase === 'reveal') {
+    const mine = g.ballots.find(b => b.v === me.id);
+    v.rv = { queue: g.queue, revealed: g.revealed.map(b => b.v), mine: mine ? mine.t : null };
+  }
+  if (g.phase === 'tie') v.tie = { ids: g.tieIds };
+  if (g.phase === 'endreveal') v.er = { ids: g.endReveal.ids, done: g.endReveal.done };
   if (g.phase === 'banished') { v.event = g.lastEvent; v.tally = g.tally; }
-  if (g.phase === 'morning') v.event = g.lastEvent;
-  if (g.phase === 'final3') v.fin = { mine: g.finalChoices[me.id] || null, count: Object.keys(g.finalChoices).length };
+  if (g.phase === 'morning') v.event = pendingReveal(g) ? { type: g.lastEvent.type, revealed: false } : g.lastEvent;
+  if (g.phase === 'final3' || g.phase === 'finalreveal' || g.phase === 'finalresult') {
+    v.fin = { mine: g.finalChoices[me.id] || null, count: Object.keys(g.finalChoices).length, ids: alive(g).map(x => x.id),
+      revealed: g.finalRevealed || [], outcome: g.phase === 'finalresult' ? g.finalOutcome : null };
+  }
   if (g.phase === 'night' && g.night) {
     const n = g.night;
-    v.night = { traitor: null, recruit: false };
-    if (n.traitors.includes(me.id)) {
+    v.night = { step: n.step, traitor: null, recruit: false };
+    if (n.traitors.includes(me.id) && !n.fake && (n.step === 'choose' || n.step === 'maskBack' || n.step === 'recruit')) {
       v.night.traitor = {
-        step: n.fake ? 'none' : n.step, kind: n.kind, rowSize: DEATH_ROW_SIZE, rowIds: n.rowIds,
+        step: n.step, kind: n.kind, rowSize: DEATH_ROW_SIZE, rowIds: n.rowIds,
         recruitAllowed: n.recruitAllowed, canMurder: n.canMurder, needed: n.traitors.length,
         picks: n.traitors.filter(id => n.picks[id]).map(id => Object.assign({ id }, n.picks[id])),
-        decision: n.decision, confirmed: !!n.confirms[me.id], confirmCount: Object.keys(n.confirms).length
+        locks: Object.keys(n.locks), agreed: !!agreed(n), traitors: n.traitors, decision: n.decision
       };
     } else if (n.step === 'recruit' && n.decision && n.decision.target === me.id && !n.decision.done) {
       v.night.recruit = true;
@@ -585,7 +669,9 @@ function dropClients(g, pid) {
 }
 setInterval(() => {
   for (const g of games.values()) {
-    if (g.phase === 'night' && g.night && g.night.fake && Date.now() >= g.night.autoAt) { finishNight(g); touch(g); }
+    if (g.phase === 'tie' && g.autoAt && Date.now() >= g.autoAt) { startRevote(g); touch(g); }
+    if (g.phase === 'finalresult' && g.autoAt && Date.now() >= g.autoAt) { afterFinalResult(g); touch(g); }
+    if (tickNight(g)) touch(g);
     for (const c of g.clients) { try { c.res.write(': keepalive\n\n'); } catch (e) { g.clients.delete(c); } }
   }
 }, 1000).unref();
@@ -608,7 +694,7 @@ function auth(code, token) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let b = '';
-    req.on('data', c => { b += c; if (b.length > 60000) { reject(new Fail('Request too large.', 413)); req.destroy(); } });
+    req.on('data', c => { b += c; if (b.length > 130000) { reject(new Fail('Request too large.', 413)); req.destroy(); } });
     req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(new Fail('Bad request.')); } });
     req.on('error', reject);
   });

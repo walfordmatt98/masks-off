@@ -135,11 +135,50 @@ body[data-night] .nav{background:var(--bg-night)}
 .compose{display:flex;gap:.5rem}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);background:var(--fg);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-weight:500;z-index:5}
 body.has-nav .toast{bottom:calc(5.75rem + env(safe-area-inset-bottom,0px))}
+
+/* full-screen moments: voting, reveals, roles. Same emerald, gold and serif as the rest of the app (deep wine for a Traitor) */
+#full{position:fixed;inset:0;z-index:15}
+.fs{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 1.2rem) 1.2rem calc(env(safe-area-inset-bottom,0px) + 1rem);font-family:var(--font-display);overflow-y:auto;-webkit-tap-highlight-color:transparent}
+.fs.g{background:var(--bg);color:var(--brass)}
+.fs.r{background:#3a0f1a;color:var(--wine)}
+.fsMain{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;text-align:center;margin:auto 0}
+.fsMain.top{justify-content:flex-start;margin:0}
+.fsT{font-size:clamp(2rem,9.5vw,3.2rem);line-height:1.2;margin:0;font-weight:700}
+.fsBig{font-size:clamp(3.2rem,17vw,5.6rem);line-height:1.1;margin:0;font-weight:700}
+.fsName{font-size:clamp(2.4rem,13vw,4rem);line-height:1.1;margin:0;font-weight:700;overflow-wrap:anywhere}
+.fsSub{font-family:var(--font-body);font-size:1rem;color:var(--muted);margin:0}
+.fs.r .fsSub{color:#e9a9b4}
+.fsPhoto{display:flex;align-items:center;justify-content:center;width:min(64vw,300px);height:min(64vw,300px);border-radius:50%;object-fit:cover;background:var(--brass);color:var(--brass-ink);font-size:6rem;flex:none;overflow:hidden}
+.fsPhoto.sm{width:min(36vw,150px);height:min(36vw,150px);font-size:3rem}
+.fsRow{display:flex;flex-wrap:wrap;gap:1.2rem;justify-content:center;align-items:flex-start}
+.fsRow>div{display:flex;flex-direction:column;align-items:center;gap:.4rem;max-width:44vw}
+.fsGrid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;width:100%;max-width:480px}
+.fsPill{background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:.4rem .8rem;font:inherit;font-size:1.35rem;font-weight:700;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:.5rem;min-height:64px;cursor:pointer;overflow-wrap:anywhere}
+.fsPill{flex-wrap:wrap}
+.fsTag{width:100%;text-align:center;font-size:.7rem;opacity:.85;font-weight:400}
+.fs.r .fsPill{background:#52182a;border-color:#8a3248;color:var(--fg)}
+.fs.r .fsPill.on{border-color:var(--wine);background:#6e2338;box-shadow:inset 0 0 0 1px var(--wine)}
+.fsPill.on{border-color:var(--brass);background:rgba(226,185,75,.2);box-shadow:inset 0 0 0 1px var(--brass)}
+.fsPill .fsAv{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none;background:var(--brass);color:var(--brass-ink);font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+.fsBtn{background:var(--brass);color:var(--brass-ink);border:0;border-radius:10px;font-family:var(--font-body);font-weight:700;font-size:1.1rem;padding:.9rem 1.6rem;width:100%;max-width:420px;cursor:pointer}
+.fsBtn:disabled{opacity:.4;cursor:not-allowed}
+.fs.r .fsBtn{background:var(--wine);color:#3a0f1a}
+.fsFoot{width:100%;display:flex;flex-direction:column;align-items:center;gap:.6rem;padding-top:.8rem}
+.fsLinks{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center}
+.fsLink{background:transparent;border:1px solid currentColor;color:inherit;opacity:.8;border-radius:999px;padding:.4rem .9rem;font-family:var(--font-body);font-size:.85rem;cursor:pointer}
+.fsTapAll{flex:1;width:100%;background:none;border:0;color:inherit;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:0}
+/* the crop window for profile photos */
+.cropov{position:fixed;inset:0;z-index:30;background:rgba(2,20,12,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem}
+.cropwin{position:relative;width:280px;height:280px;touch-action:none;border-radius:6px;overflow:hidden;background:#000}
+.cropwin canvas{display:block;width:280px;height:280px}
+.cropwin .ring{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 400px rgba(2,20,12,.72);border:2px solid var(--brass);pointer-events:none}
+.cropov input[type=range]{width:280px}
 @media (prefers-reduced-motion:reduce){body,.nav{transition:none}}
 </style>
 </head>
 <body>
 <div id="splash" aria-hidden="true"><img src="/icons/cloak.jpg" alt=""></div>
+<div id="full" hidden></div>
 <div class="wrap">
   <div class="top">
     <div class="brand"><span id="logo"></span>Masks Off</div>
@@ -197,16 +236,48 @@ function avatar(id,size){
   if(p&&p.pic)return el('img',{class:'av',style:st,alt:'',loading:'lazy',src:'/api/photo?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token)+'&id='+encodeURIComponent(id)});
   return el('span',{class:'av',style:st,'aria-hidden':'true'},(p?p.name:'?').slice(0,1).toUpperCase());
 }
-function shrinkPhoto(file){
+function cropPhoto(file){
+  // shows the picture in a round window. The player drags to move it and uses the slider to zoom, then we keep what is inside the circle.
   return new Promise(function(res,rej){
     var url=URL.createObjectURL(file),img=new Image();
-    img.onload=function(){
-      var N=144,c=document.createElement('canvas');c.width=N;c.height=N;
-      var w=img.naturalWidth,h=img.naturalHeight,m=Math.min(w,h),ctx=c.getContext('2d');
-      ctx.drawImage(img,(w-m)/2,(h-m)/2,m,m,0,0,N,N); // square crop from the middle
-      URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',0.72));
-    };
     img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('That photo could not be read.'));};
+    img.onload=function(){
+      var D=280,w=img.naturalWidth,h=img.naturalHeight,s0=D/Math.min(w,h),z=1,cx=w/2,cy=h/2;
+      var cv=el('canvas',{width:D,height:D}),ctx=cv.getContext('2d');
+      var zoom=el('input',{type:'range',min:'1',max:'4',step:'0.01',value:'1','aria-label':'Zoom'});
+      function clamp(){var sc=s0*z;cx=Math.max(D/2/sc,Math.min(w-D/2/sc,cx));cy=Math.max(D/2/sc,Math.min(h-D/2/sc,cy));}
+      function draw(c,size){var sc=s0*z*size/D;c.fillStyle='#000';c.fillRect(0,0,size,size);c.drawImage(img,size/2-cx*sc,size/2-cy*sc,w*sc,h*sc);}
+      function paint(){clamp();draw(ctx,D);}
+      var pts={},last=null,lastDist=0;
+      var win=el('div',{class:'cropwin'},cv,el('div',{class:'ring'}));
+      win.addEventListener('pointerdown',function(e){win.setPointerCapture(e.pointerId);pts[e.pointerId]=[e.clientX,e.clientY];last=null;});
+      win.addEventListener('pointermove',function(e){
+        if(!pts[e.pointerId])return;
+        var ids=Object.keys(pts);pts[e.pointerId]=[e.clientX,e.clientY];
+        if(ids.length>=2){ // two fingers: pinch to zoom
+          var a=pts[ids[0]],b=pts[ids[1]],d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+          if(lastDist){z=Math.max(1,Math.min(4,z*d/lastDist));zoom.value=String(z);}
+          lastDist=d;paint();return;
+        }
+        if(last){var sc=s0*z;cx-=(e.clientX-last[0])/sc;cy-=(e.clientY-last[1])/sc;paint();}
+        last=[e.clientX,e.clientY];
+      });
+      function up(e){delete pts[e.pointerId];last=null;lastDist=0;}
+      win.addEventListener('pointerup',up);win.addEventListener('pointercancel',up);
+      win.addEventListener('wheel',function(e){e.preventDefault();z=Math.max(1,Math.min(4,z*(e.deltaY<0?1.06:0.94)));zoom.value=String(z);paint();},{passive:false});
+      zoom.addEventListener('input',function(){z=parseFloat(zoom.value);paint();});
+      function close(){ov.remove();URL.revokeObjectURL(url);}
+      var ov=el('div',{class:'cropov',role:'dialog','aria-label':'Crop your photo'},
+        el('h3',{text:'Fit your face in the circle'}),
+        el('p',{class:'muted small',text:'Drag to move it. Use the slider to zoom.'}),
+        win,zoom,
+        el('div',{class:'row'},
+          B('Use this photo',function(){
+            var out=document.createElement('canvas');out.width=256;out.height=256;draw(out.getContext('2d'),256);
+            close();res(out.toDataURL('image/jpeg',0.82));}),
+          B('Cancel',function(){close();rej(new Error('cancelled'));},'ghost')));
+      document.body.appendChild(ov);paint();
+    };
     img.src=url;
   });
 }
@@ -217,11 +288,11 @@ function photoPicker(){
   var label=el('p',{class:'muted small'});
   function paint(){
     btn.replaceChildren(S.photo?el('img',{src:S.photo,alt:'Your photo'}):'Take a photo');
-    label.textContent=S.photo?'Looking good. Tap the photo to retake it.':'Take a photo of your face, or pick one from your library, so the others can see who is talking in the chats.';
+    label.textContent=S.photo?'Looking good. Tap the photo to retake it.':'Take a photo of your face, or pick one from your library, then fit it in the circle. The others will see it in the chats and in the votes.';
   }
   function take(input){return function(){
     var f=input.files&&input.files[0];if(!f)return;
-    shrinkPhoto(f).then(function(d){S.photo=d;store('mo-photo',d);paint();}).catch(function(e){toast(e.message);});
+    cropPhoto(f).then(function(d){S.photo=d;store('mo-photo',d);paint();}).catch(function(e){if(e.message!=='cancelled')toast(e.message);});
     input.value='';
   };}
   btn.addEventListener('click',function(){cam.click();});
@@ -231,7 +302,7 @@ function photoPicker(){
     el('div',{class:'photo'},btn,el('div',{class:'stack'},label,
       el('button',{class:'btn ghost small',type:'button',onclick:function(){lib.click();}},'Choose from photo library'))),cam,lib);
 }
-var CUR='A$'; // Australian dollars. Change this one line to use a different symbol.
+var CUR='$'; // the money symbol. Change this one line to use a different one.
 
 /* ---------- state ---------- */
 var S={code:null,token:null,V:null,tab:'game',pending:null,rowSel:[],pk:null,nightMode:'murder',peekUntil:0,roleOpen:false,
@@ -324,8 +395,9 @@ function landing(){
 function sayCard(){
   var v=S.V;if(!v.narration)return null;
   return el('div',{class:'say'},el('span',{class:'label',text:'The Host'}),el('p',{class:'text',text:v.narration.text}),
-    S.voice?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
+    voiceOn()?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
 }
+function voiceOn(){return !!(S.V&&S.V.you.host&&store('mo-voice')!=='0');}
 function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.rate=.92;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
 function roleTag(p){return p.role?el('span',{class:'tag '+(p.role==='traitor'?'t':'f'),text:p.role==='traitor'?'Traitor':'Faithful'}):null;}
 function tableCard(){
@@ -440,132 +512,18 @@ var PHASES={
     out.push(card(kids));
   },
   day:function(v,out){
-    out.push(card(el('h3',{text:'Day '+v.round}),v.endsAt?el('div',{class:'timer','data-ends':v.endsAt}):null,
-      el('p',{class:'muted',text:'Talk it out. The host will call the banishment.'}),peekBox()));
+    out.push(card(el('h3',{text:'Day '+v.round}),      el('p',{class:'muted',text:'Talk it out. The host will call the banishment.'}),peekBox()));
   },
-  banish:function(v,out){
-    var b=v.ban,me=v.you,canVote=me.alive&&b.voters.indexOf(me.id)>=0,voted=b.voted.indexOf(me.id)>=0;
-    var shielded=v.players.filter(function(p){return p.shield;}).map(function(p){return p.name;});
-    var kids=[el('h3',{text:b.final?'The final vote':b.rev?'Vote again':'Who is a Traitor?'})];
-    if(shielded.length)kids.push(el('p',{class:'ok small',text:'Shields (cannot be murdered tonight): '+shielded.join(', ')}));
-    if(b.rev)kids.push(el('p',{class:'muted',text:'On the ballot: '+b.candidates.map(nick).join(', ')}));
-    if(canVote&&!voted){
-      kids.push(el('p',{class:'muted',text:'Tap a name, then lock in your vote. You cannot change it afterwards.'}));
-      kids.push(el('div',{class:'grid'},b.candidates.filter(function(id){return id!==me.id;}).map(function(id){
-        return el('button',{class:'pick','aria-pressed':String(S.pending===id),onclick:function(){S.pending=id;rebuild();}},nick(id));})));
-      kids.push(B('Lock in my vote',function(){act('vote',{target:S.pending});},'',!S.pending));
-    }else if(voted){kids.push(el('p',{class:'ok',text:'Your vote is locked in.'}));}
-    else if(me.alive){kids.push(el('p',{class:'muted',text:'You are on the ballot. The others are voting.'}));}
-    else kids.push(el('p',{class:'muted',text:'You cannot vote any more.'}));
-    kids.push(el('p',{class:'muted small',text:b.voted.length+' of '+b.voters.length+' votes are in.'}));
-    kids.push(bar(b.voted.length/Math.max(1,b.voters.length)*100));
-    out.push(card(kids));
-    if(b.rev)out.push(tallyCard(v.tally));
-  },
-  reveal:function(v,out){
-    var r=v.rv,cur=r.queue[r.revealed.length],mine=cur===v.you.id;
-    out.push(card(el('h3',{text:'Reveal your votes'}),
-      mine?[el('p',{text:'It is your turn. Tap to show who you voted for.'}),B('Reveal my vote',function(){act('revealVote');})]
-          :el('p',{class:'muted',text:cur?nick(cur)+' reveals next.':'All votes are shown.'}),
-      bar(r.queue.length?r.revealed.length/r.queue.length*100:0),
-      r.revealed.length?el('ul',{class:'list'},r.revealed.map(function(x){return el('li',null,el('span',{class:'nm',text:nick(x.v)}),el('span',{text:'→ '+nick(x.t)}));})):null));
-  },
-  banished:function(v,out){
-    var ev=v.event||{},out1=ev.type==='banished',me=v.you;
-    var kids=[el('h3',{text:out1?nick(ev.id)+' is banished':'No one is banished'})];
-    if(out1&&ev.done&&ev.show)kids.push(el('p',{class:ev.role==='traitor'?'bad':'ok',text:'They were '+(ev.role==='traitor'?'a Traitor.':'Faithful.')}));
-    if(out1&&ev.chance)kids.push(el('p',{class:'muted',text:'The table was still split, so chance decided.'}));
-    if(out1&&!ev.show)kids.push(el('p',{class:'muted',text:'Roles are no longer revealed.'}));
-    if(out1&&ev.show&&!ev.done){
-      if(ev.id===me.id){kids.push(el('p',{text:'Show the table who you really were.'}));kids.push(B('Reveal my role',function(){act('revealRole');}));}
-      else kids.push(el('p',{class:'muted',text:'Waiting for '+nick(ev.id)+' to reveal their role.'}));
-    }
-    out.push(card(kids));out.push(tallyCard(v.tally));
-  },
-  night:function(v,out){
-    var me=v.you,n=v.night||{},t=n.traitor;
-    if(t&&me.alive){
-      if(t.step==='choose'){
-        var mates=v.mates.filter(function(id){return id!==me.id&&v.players.find(function(p){return p.id===id;}).alive;});
-        var isRow=t.kind==='row';
-        var mode=isRow?((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'row')
-                       :(!t.canMurder?'recruit':((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'murder'));
-        var mine=t.picks.find(function(x){return x.id===me.id;});
-        var kids=[el('h2',{text:'Take off your mask'}),
-          el('p',{class:'muted',text:mates.length?'Your fellow Traitors: '+mates.map(nick).join(', ')+'. Decide together, silently, with looks and gestures.':'You are the only Traitor left. Choose alone.'})];
-        if(t.recruitAllowed&&(isRow||t.canMurder)){
-          kids.push(el('p',{class:'muted',text:'You may recruit tonight instead. The chosen player becomes a Traitor if they accept. The table is told that no one died.'}));
-          kids.push(el('div',{class:'row'},
-            el('button',{class:'pick murder','aria-pressed':String(mode!=='recruit'),onclick:function(){S.nightMode='murder';rebuild();}},isRow?'Death row':'Murder'),
-            el('button',{class:'pick','aria-pressed':String(mode==='recruit'),onclick:function(){S.nightMode='recruit';rebuild();}},'Recruit')));
-        }else if(!isRow&&!t.canMurder){
-          kids.push(el('p',{class:'muted',text:'Everyone you could murder is protected tonight, so you can only recruit. The table is told that no one died.'}));
-        }
-        if(mode==='row'){
-          if(!S.rowSel.length&&mine&&mine.targets)S.rowSel=mine.targets.slice();
-          kids.push(el('p',{class:'muted',text:'Choose '+t.rowSize+' players for death row. You may choose Traitors, even yourself, to throw suspicion. The next murder has to be one of them. Everyone will be told who is on death row.'}));
-          kids.push(el('div',{class:'grid'},v.players.filter(function(p){return p.alive;}).map(function(p){
-            var on=S.rowSel.indexOf(p.id)>=0,mate=v.mates.indexOf(p.id)>=0;
-            return el('button',{class:'pick murder','aria-pressed':String(on),disabled:!on&&S.rowSel.length>=t.rowSize,onclick:function(){toggleRow(p.id);}},
-              p.name,p.id===me.id?el('span',{class:'tag muted',text:' you'}):mate?el('span',{class:'tag t',text:' Traitor'}):null);})));
-          kids.push(B('Lock in death row ('+S.rowSel.length+' of '+t.rowSize+')',function(){act('nightPick',{action:'row',targets:S.rowSel.slice()});},'',S.rowSel.length!==t.rowSize));
-        }else{
-          var murder=mode==='murder';
-          var targets=v.players.filter(function(p){
-            if(!p.alive||v.mates.indexOf(p.id)>=0)return false;
-            return !(murder&&t.rowIds&&t.rowIds.indexOf(p.id)<0);});
-          if(S.pending===null&&mine&&mine.target)S.pending=mine.target;
-          var pend=v.players.find(function(p){return p.id===S.pending;});
-          if(murder&&pend&&(pend.shield||(t.rowIds&&t.rowIds.indexOf(pend.id)<0)))S.pending=null;
-          if(murder&&t.rowIds)kids.push(el('p',{class:'muted',text:'Death row is in force. You can only murder a player on death row.'}));
-          if(murder&&targets.some(function(p){return p.shield;}))kids.push(el('p',{class:'muted small',text:'Players with a shield cannot be murdered.'}));
-          kids.push(el('div',{class:'grid'},targets.map(function(p){
-            var blocked=murder&&p.shield;
-            return el('button',{class:'pick'+(murder?' murder':''),disabled:blocked,'aria-pressed':String(S.pending===p.id),onclick:function(){S.pending=p.id;rebuild();}},p.name,p.shield?el('span',{class:'tag s',text:' shield'}):null);})));
-          kids.push(B(murder?'Lock in murder':'Lock in recruit',function(){act('nightPick',{action:mode,target:S.pending});},'',!S.pending));
-        }
-        kids.push(el('p',{class:'muted small',text:t.picks.length+' of '+t.needed+' Traitors have chosen. You all need to choose the same.'}));
-        if(t.picks.length)kids.push(el('p',{class:'muted small',text:t.picks.map(function(x){return nick(x.id)+': '+pickText(x);}).join('  ·  ')}));
-        out.push(card(kids));
-      }else if(t.step==='none'){
-        out.push(card(el('h2',{text:'Take off your mask'}),
-          el('p',{class:'muted',text:t.rowIds?'Nobody on death row can be murdered tonight. They are shielded, gone or Traitors. Put your mask back on and wait quietly for the sun to rise.'
-            :'Everyone left holds a shield, so there is nobody to murder tonight. Put your mask back on and wait quietly for the sun to rise.'})));
-      }else if(t.step==='maskOn'){
-        out.push(card(el('h2',{text:'Put your mask back on'}),
-          el('p',{class:'muted',text:'Mask on, eyes closed. Tap below when it is on.'}),
-          t.confirmed?el('p',{class:'ok',text:'Waiting for the other Traitors.'}):B('My mask is on',function(){act('maskOn');}),
-          el('p',{class:'muted small',text:t.confirmCount+' of '+t.needed+' ready.'})));
-      }else{
-        var rt=t.decision&&t.decision.target;
-        out.push(card(el('h2',{text:'Tap '+nick(rt)+' on the shoulder'}),
-          el('p',{class:'muted',text:'Keep your mask on and go and tap them. Then wait quietly for the sun to rise.'})));
-      }
-    }else if(n.recruit){
-      out.push(card(el('h2',{text:'Take off your mask'}),
-        el('p',{text:'The Traitors have chosen you. Join them, or stay Faithful. No one else will know unless you say so.'}),
-        el('div',{class:'row'},B('Join the Traitors',function(){act('recruitReply',{accept:true});}),B('Stay Faithful',function(){act('recruitReply',{accept:false});},'ghost'))));
-    }else{
-      out.push(el('div',{class:'card night'},el('h2',{text:'Masks on'}),el('p',{class:'muted',text:'Close your eyes and keep them closed until the host calls morning.'})));
-    }
-  },
-  morning:function(v,out){
-    var ev=v.event||{};
-    if(ev.type==='murdered')out.push(card(el('h3',{text:nick(ev.id)+' was murdered'})));
-    else if(ev.type==='deathrow')out.push(card(el('h3',{text:'No one died'}),
-      el('p',{class:'muted',text:'But the Traitors have put '+ev.ids.length+' players on death row. The next murder will be one of them, unless a shield protects them.'})));
-    else out.push(card(el('h3',{text:'No one died'})));
-  },
-  final3:function(v,out){
-    var me=v.you,f=v.fin,mine=f.mine;
-    if(!me.alive){out.push(card(el('h3',{text:'The final three decide'}),el('p',{class:'muted',text:'Watch quietly while they choose.'})));return;}
-    out.push(card(el('h3',{text:'The final three'}),
-      el('p',{class:'muted',text:'End the game, and if a Traitor is among you, the Traitors win. Vote one last time, and the final two decide the winner. If any one of you chooses to vote, the vote happens.'}),
-      el('div',{class:'row'},
-        el('button',{class:'pick','aria-pressed':String(mine==='end'),onclick:function(){act('finalChoice',{choice:'end'});}},'End the game'),
-        el('button',{class:'pick murder','aria-pressed':String(mine==='vote'),onclick:function(){act('finalChoice',{choice:'vote'});}},'Vote one last time')),
-      el('p',{class:'muted small',text:f.count+' of 3 have chosen. You can change your choice until everyone has.'})));
-  },
+  banish:function(v,out){out.push(card(el('h3',{text:'The vote'}),el('p',{class:'muted',text:'Look at the full screen to vote.'})));},
+  reveal:function(v,out){out.push(card(el('h3',{text:'The reveal'})));},
+  tie:function(v,out){out.push(card(el('h3',{text:'A tie'})));},
+  banished:function(v,out){out.push(card(el('h3',{text:'The result'})));},
+  night:function(v,out){out.push(card(el('h3',{text:'Night'})));},
+  morning:function(v,out){out.push(card(el('h3',{text:'Morning'})));},
+  final3:function(v,out){out.push(card(el('h3',{text:'The final three'})));},
+  finalreveal:function(v,out){out.push(card(el('h3',{text:'The final three'})));},
+  finalresult:function(v,out){out.push(card(el('h3',{text:'The final three'})));},
+  endreveal:function(v,out){out.push(card(el('h3',{text:'The end'})));},
   ended:function(v,out){
     var sc=sayCard();if(sc)out.push(sc);
     out.push(card(el('h2',{text:v.winner==='traitors'?'The Traitors win':v.winner==='faithful'?'The Faithful win':'Game called'}),
@@ -583,7 +541,6 @@ function hostPanel(){
   var v=S.V,P=v.phase,k=[el('span',{class:'label',text:'Host controls'})];
   if(P==='roles'){k.push(B('Begin day 1',function(){act('beginDay');}));}
   else if(P==='day'){
-    k.push(el('div',{class:'row'},B('3 min',function(){act('timer',{min:3});},'ghost small'),B('5 min',function(){act('timer',{min:5});},'ghost small'),B('10 min',function(){act('timer',{min:10});},'ghost small')));
     k.push(el('span',{class:'label',text:'Before the banishment: missions'}));
     k.push(el('div',{class:'field'},el('label',{for:'potin',class:'label',text:'Money earned from this round\'s missions ('+CUR+')'}),
       el('div',{class:'compose'},el('input',{id:'potin',type:'text',inputmode:'decimal',autocomplete:'off',placeholder:'0'}),
@@ -598,15 +555,6 @@ function hostPanel(){
       return el('button',{class:'pick','aria-pressed':String(p.shield),onclick:function(){
         act('setShields',{ids:p.shield?held.filter(function(i){return i!==p.id;}):held.concat([p.id])});}},p.name);})));
     k.push(B('Call the banishment',function(){act('callBanish');}));
-  }else if(P==='banish'){
-    k.push(B('Close the vote now',function(){act('closeVote');},'ghost',v.ban.voted.length===0));
-  }else if(P==='reveal'){
-    var cur=v.rv.queue[v.rv.revealed.length];
-    if(cur)k.push(B('Reveal for '+nick(cur),function(){act('revealFor');},'ghost small'));
-  }else if(P==='banished'){
-    var ev=v.event||{};
-    if(ev.type==='banished'&&ev.show&&!ev.done)k.push(B('Reveal role for '+nick(ev.id),function(){act('revealRoleFor');},'ghost small'));
-    else k.push(B({night:'Start the night',day:'Start the next day',final3:'Go to the final three',end:'See the result'}[v.next],function(){act('next');}));
   }else if(P==='night'){
     k.push(el('p',{class:'muted small',text:'The app is running the night. Nothing here tells you what the Traitors chose.'}));
     k.push(confirmBtn('skipnight','Skip the night if someone is stuck',function(){act('forceMorning');}));
@@ -826,12 +774,209 @@ function showTab(){
   $('#chats').hidden=S.tab!=='chats';
   document.body.classList.toggle('has-nav',!!S.V);
   if(S.tab==='chats')renderChats();else renderNav();
+  renderFull();
 }
 $('#nav-game').addEventListener('click',function(){saveDraft();S.tab='game';showTab();window.scrollTo(0,0);});
 $('#nav-chats').addEventListener('click',function(){S.tab='chats';showTab();window.scrollTo(0,0);});
 
+
+/* ---------- full-screen moments ---------- */
+function pl(id){return S.V.players.find(function(p){return p.id===id;});}
+function photoUrl(id){return '/api/photo?code='+encodeURIComponent(S.code)+'&token='+encodeURIComponent(S.token)+'&id='+encodeURIComponent(id);}
+function bigPhoto(id,small){
+  var p=pl(id),cls='fsPhoto'+(small?' sm':'');
+  if(p&&p.pic)return el('img',{class:cls,alt:'',src:photoUrl(id)});
+  return el('span',{class:cls},(p?p.name:'?').slice(0,1).toUpperCase());
+}
+function pillFace(id){
+  var p=pl(id);
+  if(p&&p.pic)return el('img',{class:'fsAv',alt:'',src:photoUrl(id)});
+  return el('span',{class:'fsAv'},(p?p.name:'?').slice(0,1).toUpperCase());
+}
+function fsScreen(theme,main,foot,opts){return {theme:theme,main:main,foot:(foot||[]).filter(Boolean),top:!!(opts&&opts.top),onclick:opts&&opts.onclick};}
+function fsText(t,cls){return el('p',{class:cls||'fsT',text:t});}
+function hostFoot(P){
+  var v=S.V,out=[];if(!v.you.host)return out;
+  return out;
+}
+function roleScreen(role,mates,onTap){
+  var t=role==='traitor';
+  var main=[fsText(t?'Traitor':'Faithful','fsBig')];
+  if(mates&&mates.length)main.push(el('p',{class:'fsSub',text:'With '+mates.join(', ')}));
+  if(t&&mates&&!mates.length)main.push(el('p',{class:'fsSub',text:'You are the only Traitor'}));
+  if(onTap)main.push(el('p',{class:'fsSub',text:'Tap anywhere to hide this'}));
+  return fsScreen(t?'r':'g',main,[],{onclick:onTap});
+}
+function tapScreen(text,fn){return fsScreen('g',[el('button',{class:'fsTapAll',onclick:fn},fsText(text))],[]);}
+function watchScreen(title,sub){return fsScreen('g',[fsText(title),sub?el('p',{class:'fsSub',text:sub}):null],[]);}
+function hostBtn(label,fn){return el('button',{class:'fsLink',onclick:fn},label);}
+function fullScreen(v){
+  var me=v.you,P=v.phase,host=me.host,mates=(v.mates||[]).filter(function(id){return id!==me.id;}).map(nick);
+  // your own role: tap to see it, in private
+  if(me.role&&((P==='roles'&&S.roleOpen&&!pl(me.id).ready)||Date.now()<S.peekUntil)&&P!=='lobby'&&P!=='ended'){
+    return roleScreen(me.role,me.role==='traitor'?mates:null,function(){
+      if(P==='roles'&&S.roleOpen){S.roleOpen=false;act('ready');}else S.peekUntil=0;
+      rebuild();});
+  }
+  if(P==='banish'){
+    var b=v.ban,canVote=me.alive&&b.voters.indexOf(me.id)>=0,voted=b.voted.indexOf(me.id)>=0;
+    var count=el('p',{class:'fsSub',text:b.voted.length+' of '+b.voters.length+' votes are in'});
+    var closeBtn=host?hostBtn('Close the vote now',function(){act('closeVote');}):null;
+    if(canVote&&!voted){
+      var ids=b.candidates.filter(function(id){return id!==me.id;});
+      return fsScreen('g',[fsText(b.rev?'Vote again':b.final?'The final vote':'Who will you banish?'),
+        el('div',{class:'fsGrid'},ids.map(function(id){
+          return el('button',{class:'fsPill'+(S.pending===id?' on':''),onclick:function(){S.pending=id;rebuild();}},pillFace(id),nick(id));}))],
+        [el('button',{class:'fsBtn',disabled:!S.pending,onclick:function(){act('vote',{target:S.pending});}},'Lock in my vote'),count,closeBtn],{top:true});
+    }
+    if(voted)return fsScreen('g',[fsText('Your vote is locked in'),el('p',{class:'fsSub',text:'Waiting for the others'}),count],[closeBtn]);
+    if(me.alive)return fsScreen('g',[fsText('You are tied'),el('p',{class:'fsSub',text:'The others are deciding between you'}),count],[closeBtn]);
+    return fsScreen('g',[fsText('The vote is under way'),count],[closeBtn]);
+  }
+  if(P==='reveal'){
+    var r=v.rv,inQ=r.queue.indexOf(me.id)>=0,shown=r.revealed.indexOf(me.id)>=0;
+    var cnt=el('p',{class:'fsSub',text:r.revealed.length+' of '+r.queue.length+' votes shown'});
+    var nextId=r.queue.filter(function(id){return r.revealed.indexOf(id)<0;})[0];
+    var rf=host&&nextId?hostBtn('Show '+nick(nextId)+'\'s vote for them',function(){act('revealFor');}):null;
+    if(inQ&&!shown)return fsScreen('g',[el('button',{class:'fsTapAll',onclick:function(){act('revealVote');}},fsText('Tap to reveal your vote'))],[cnt,rf]);
+    if(inQ&&shown)return fsScreen('g',[bigPhoto(r.mine),fsText(nick(r.mine),'fsName')],[cnt,rf]);
+    return fsScreen('g',[fsText('The votes are being revealed')],[cnt,rf]);
+  }
+  if(P==='tie'){
+    return fsScreen('g',[fsText('We have a tie between'),
+      el('div',{class:'fsRow'},v.tie.ids.map(function(id){return el('div',null,bigPhoto(id,true),fsText(nick(id),'fsT'));})),
+      el('p',{class:'fsSub',text:'Another vote is about to begin. The tied players cannot vote.'})],[]);
+  }
+  if(P==='banished'){
+    var ev=v.event||{},nextLabel={night:'Start the night',day:'Start the next day',final3:'Go to the final three',end:'See the result'}[v.next];
+    var cont=host?el('button',{class:'fsBtn',onclick:function(){act('next');}},nextLabel):null;
+    if(ev.type!=='banished')return fsScreen('g',[fsText('No one is banished')],[cont]);
+    if(ev.show&&ev.done)return fsScreen(ev.role==='traitor'?'r':'g',[fsText(ev.role==='traitor'?'Traitor':'Faithful','fsBig')],[cont]);
+    var main=[fsText('The banished player is'),bigPhoto(ev.id),fsText(nick(ev.id),'fsName')];
+    if(ev.chance)main.push(el('p',{class:'fsSub',text:'The table was still split, so fate decided'}));
+    if(ev.show&&!ev.done){
+      var foot=[];
+      if(ev.id===me.id)foot.push(el('button',{class:'fsBtn',onclick:function(){act('revealRole');}},'Tap to reveal your role'));
+      else main.push(el('p',{class:'fsSub',text:'Waiting for '+nick(ev.id)+' to reveal their role'}));
+      if(host)foot.push(hostBtn('Reveal role for '+nick(ev.id),function(){act('revealRoleFor');}));
+      return fsScreen('g',main,foot);
+    }
+    return fsScreen('g',main,[cont]);
+  }
+  if(P==='night'){
+    var n=v.night||{},t=n.traitor,tm=(t&&t.traitors||[]);
+    var dots=function(){return fsScreen('g',[fsText('. . .','fsBig')],[]);};
+    if(n.recruit)return fsScreen('g',[fsText('The Traitors have chosen you'),
+      el('p',{class:'fsSub',text:'Join them, or stay Faithful. No one else will know unless you say so.'})],
+      [el('button',{class:'fsBtn',onclick:function(){act('recruitReply',{accept:true});}},'Join the Traitors'),
+       el('button',{class:'fsLink',onclick:function(){act('recruitReply',{accept:false});}},'Stay Faithful')]);
+    if(n.step==='maskBack'||n.step==='recruit'){
+      if(t&&me.alive&&n.step==='recruit'){
+        var rt=t.decision&&t.decision.target;
+        return fsScreen('r',[fsText('Tap '+nick(rt)+' on the shoulder'),el('p',{class:'fsSub',text:'Keep your mask on, then wait quietly for the sun to rise.'})],[]);
+      }
+      return dots();
+    }
+    if(n.step!=='choose'||!t||!me.alive)return null; // everyone else's phone stays as it is
+    // the Traitors' red vote
+    var isRow=t.kind==='row',mode=isRow?((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'row')
+      :(!t.canMurder?'recruit':((t.recruitAllowed&&S.nightMode==='recruit')?'recruit':'murder'));
+    var mine=t.picks.find(function(x){return x.id===me.id;});
+    var lockedMe=t.locks.indexOf(me.id)>=0;
+    var pickersOf=function(id){return t.picks.filter(function(x){return x.id!==me.id&&(x.target===id||(x.targets&&x.targets.indexOf(id)>=0));}).map(function(x){return nick(x.id);});};
+    var main=[fsText(isRow&&mode==='row'?'Choose the death row':mode==='recruit'?'Who will you recruit?':'Who will you murder?')];
+    if(mode==='row')main.push(el('p',{class:'fsSub',text:'Pick '+t.rowSize+' players, Traitors and yourself included. The next murder must be one of them.'}));
+    else if(mode==='recruit')main.push(el('p',{class:'fsSub',text:'If they accept they become a Traitor. The table is told that no one died.'}));
+    else if(t.rowIds)main.push(el('p',{class:'fsSub',text:'Death row is in force. Only a player on it can be murdered.'}));
+    var cands=v.players.filter(function(p){
+      if(!p.alive)return false;
+      if(mode==='row')return true;
+      if(tm.indexOf(p.id)>=0)return false;
+      return !(mode==='murder'&&((t.rowIds&&t.rowIds.indexOf(p.id)<0)||p.shield));});
+    var mineSel=mine&&mine.action===mode?(mode==='row'?mine.targets:[mine.target]):[];
+    main.push(el('div',{class:'fsGrid'},cands.map(function(p){
+      var on=mineSel.indexOf(p.id)>=0,others=pickersOf(p.id);
+      return el('button',{class:'fsPill'+(on?' on':''),onclick:function(){
+        if(mode==='row'){var s=mineSel.slice(),i=s.indexOf(p.id);if(i>=0)s.splice(i,1);else if(s.length<t.rowSize)s.push(p.id);else return;act('nightPick',{action:'row',targets:s});}
+        else act('nightPick',{action:mode,target:p.id});}},
+        pillFace(p.id),nick(p.id)+(p.id===me.id?' (you)':''),others.length?el('span',{class:'fsTag',text:others.join(', ')+(others.length>1?' chose':' chose')}):null);})));
+    var lockTxt=lockedMe?'Locked in. Waiting for the other Traitors':t.agreed?'Lock in':tm.length>1?'Waiting for all Traitors to pick the same':'Choose someone';
+    return fsScreen('r',main,
+      [t.recruitAllowed&&(isRow||t.canMurder)?el('button',{class:'fsBtn',onclick:function(){S.nightMode=mode==='recruit'?'murder':'recruit';rebuild();}},mode==='recruit'?(isRow?'Back to death row':'Back to murder'):'Choose to recruit'):null,
+       el('button',{class:'fsBtn',disabled:lockedMe||!t.agreed,onclick:function(){act('nightLock');}},lockTxt),
+       el('p',{class:'fsSub',text:t.locks.length+' of '+t.needed+' locked in. Change your pick any time before everyone locks.'})],{top:true});
+  }
+  if(P==='morning'){
+    var ev2=v.event||{},hostGo=host?el('button',{class:'fsBtn',onclick:function(){act('beginDay');}},'Start day '+(v.round+1)):null;
+    var tapMain=function(kids){
+      if(host)return fsScreen('g',[el('button',{class:'fsTapAll',onclick:function(){act('revealMurder');}},kids,el('p',{class:'fsSub',text:'Host: tap the screen to reveal'}))],[]);
+      return fsScreen('g',kids.concat([el('p',{class:'fsSub',text:'The host will reveal it'})]),[]);
+    };
+    if(ev2.type==='murdered'&&!ev2.revealed)return tapMain([fsText('There has been a murder!'),fsText('The person murdered is...','fsName')]);
+    if(ev2.type==='deathrow'&&!ev2.revealed)return tapMain([fsText('The players put on death row are...','fsName')]);
+    if(ev2.type==='murdered')return fsScreen('g',[fsText('The person murdered is'),bigPhoto(ev2.id),fsText(nick(ev2.id),'fsName')],[hostGo]);
+    if(ev2.type==='deathrow')return fsScreen('g',[fsText('Death row'),
+      el('div',{class:'fsRow'},ev2.ids.map(function(id){return el('div',null,bigPhoto(id,true),fsText(nick(id),'fsT'));})),
+      el('p',{class:'fsSub',text:'The next murder will be one of them, unless a shield protects them.'})],[hostGo]);
+    return fsScreen('g',[fsText('No murder tonight')],[hostGo]);
+  }
+  if(P==='final3'){
+    var f=v.fin;
+    if(!me.alive)return watchScreen('The final three decide','Watch quietly while they choose');
+    if(f.mine)return fsScreen('g',[fsText('Your choice is locked in'),el('p',{class:'fsSub',text:f.count+' of '+f.ids.length+' have chosen'})],[]);
+    var opts=[['end','End the game'],['vote','Vote one last time']];
+    return fsScreen('g',[fsText('The final three'),
+      el('p',{class:'fsSub',text:'End the game and, if a Traitor is among you, the Traitors win. Vote one last time and one of you leaves. If any one of you votes, the vote happens.'}),
+      el('div',{class:'fsGrid'},opts.map(function(o){return el('button',{class:'fsPill'+(S.pending===o[0]?' on':''),onclick:function(){S.pending=o[0];rebuild();}},o[1]);}))],
+      [el('button',{class:'fsBtn',disabled:!S.pending,onclick:function(){act('finalChoice',{choice:S.pending});}},'Lock in my choice'),
+       el('p',{class:'fsSub',text:f.count+' of '+f.ids.length+' have chosen'})],{top:true});
+  }
+  if(P==='finalreveal'){
+    var fr=v.fin,inF=fr.ids.indexOf(me.id)>=0,shownF=fr.revealed.indexOf(me.id)>=0;
+    var fc=el('p',{class:'fsSub',text:fr.revealed.length+' of '+fr.ids.length+' choices shown'});
+    var nf=fr.ids.filter(function(id){return fr.revealed.indexOf(id)<0;})[0];
+    var ff=host&&nf?hostBtn('Show '+nick(nf)+'\'s choice for them',function(){act('revealFinalFor');}):null;
+    if(inF&&!shownF)return fsScreen('g',[el('button',{class:'fsTapAll',onclick:function(){act('revealFinal');}},fsText('Tap to reveal your choice'))],[fc,ff]);
+    if(inF&&shownF)return fsScreen('g',[bigPhoto(me.id),fsText(fr.mine==='end'?'End the game':'Vote one last time','fsName')],[fc,ff]);
+    return fsScreen('g',[fsText('The final three are revealing their choices')],[fc,ff]);
+  }
+  if(P==='finalresult'){
+    return fsScreen('g',[fsText(v.fin.outcome==='end'?'The game will end':'One last vote'),
+      el('p',{class:'fsSub',text:v.fin.outcome==='end'?'All three of you chose to end it.':'At least one of you chose to vote.'})],[]);
+  }
+  if(P==='endreveal'){
+    var er=v.er,inE=er.ids.indexOf(me.id)>=0,doneE=er.done.indexOf(me.id)>=0;
+    var ef=host&&er.done.length<er.ids.length?hostBtn('Reveal the next role for them',function(){act('revealEndFor');}):null;
+    if(inE&&!doneE)return fsScreen('g',[el('button',{class:'fsTapAll',onclick:function(){act('revealEnd');}},fsText('Tap to reveal your role'))],[ef]);
+    if(inE&&doneE)return fsScreen(me.role==='traitor'?'r':'g',[fsText(me.role==='traitor'?'Traitor':'Faithful','fsBig'),el('p',{class:'fsSub',text:er.done.length+' of '+er.ids.length+' revealed'})],[ef]);
+    return fsScreen('g',[fsText('The last players are revealing who they are'),el('p',{class:'fsSub',text:er.done.length+' of '+er.ids.length+' revealed'})],[ef]);
+  }
+  if(P==='ended'&&v.winner&&S.endSeen!==v.code){
+    var tw=v.winner==='traitors';
+    return fsScreen(tw?'r':'g',[fsText(tw?'Traitors win':'Faithful win','fsBig')],
+      [el('button',{class:'fsBtn',onclick:function(){S.endSeen=v.code;rebuild();}},'See everyone\'s roles')]);
+  }
+  return null;
+}
+function renderFull(){
+  var box=$('#full'),v=S.V,scr=(v&&S.tab==='game')?fullScreen(v):null;
+  if(!scr){if(!box.hidden){box.hidden=true;box.replaceChildren();}S.fullKey='';document.body.classList.remove('fs-on');return;}
+  var foot=scr.foot.slice();
+  var links=[el('button',{class:'fsLink',onclick:function(){saveDraft();S.tab='chats';showTab();}},'Open chats')];
+  if(v.you.host&&v.phase!=='ended')links.push(el('button',{class:'fsLink',onclick:function(){
+    if(S.endArm){S.endArm=false;act('endEarly');return;}
+    S.endArm=true;toast('Tap again to end the game for everyone.');setTimeout(function(){S.endArm=false;},4000);}},'End the game early'));
+  if(!scr.onclick)foot.push(el('div',{class:'fsLinks'},links));
+  var key=JSON.stringify(v)+'|'+S.pending+'|'+S.roleOpen+'|'+(Date.now()<S.peekUntil)+'|'+S.endSeen;
+  if(key===S.fullKey&&!box.hidden)return;
+  S.fullKey=key;
+  var root=el('div',{class:'fs '+scr.theme},el('div',{class:'fsMain'+(scr.top?' top':'')},scr.main),el('div',{class:'fsFoot'},foot));
+  if(scr.onclick)root.addEventListener('click',scr.onclick);
+  box.replaceChildren(root);box.hidden=false;document.body.classList.add('fs-on');
+}
+
 /* ---------- render ---------- */
-function rebuild(){S.lastKey='';renderGame();}
+function rebuild(){S.lastKey='';S.fullKey='';renderGame();renderFull();}
 function renderGame(){
   var g=$('#game'),v=S.V;
   if(!v&&S.code){
@@ -863,13 +1008,13 @@ function onState(){
   if(!v||v.phase!=='roles')S.roleOpen=false;
   document.body.toggleAttribute('data-night',!!(v&&v.phase==='night'));
   $('#leaveBtn').hidden=!v;
-  $('#voiceBtn').hidden=!v;
-  $('#voiceBtn').textContent='Host voice: '+(S.voice?'on':'off');
+  $('#voiceBtn').hidden=!(v&&v.you.host);
+  $('#voiceBtn').textContent='Host voice: '+(voiceOn()?'on':'off');
   if(v){
     syncChats();
-    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(S.voice&&v.phase!=='lobby')speak(v.narration.text);}
+    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(voiceOn()&&v.phase!=='lobby')speak(v.narration.text);}
   }
-  renderGame();showTab();
+  renderGame();showTab();renderFull();
 }
 function tick(){
   document.querySelectorAll('[data-ends]').forEach(function(n){
@@ -879,9 +1024,9 @@ function tick(){
 }
 setInterval(tick,500);
 $('#voiceBtn').addEventListener('click',function(){
-  S.voice=!S.voice;store('mo-voice',S.voice?'1':'0');
-  if(S.voice)speak('The host will now speak aloud on this phone.');
-  $('#voiceBtn').textContent='Host voice: '+(S.voice?'on':'off');
+  var on=!voiceOn();store('mo-voice',on?'1':'0');
+  if(on)speak('The host will now speak aloud on this phone.');
+  $('#voiceBtn').textContent='Host voice: '+(on?'on':'off');
 });
 $('#leaveBtn').addEventListener('click',function(){
   var inGame=S.V&&S.V.phase!=='lobby'&&S.V.phase!=='ended';

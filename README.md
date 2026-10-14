@@ -47,7 +47,7 @@ A game is only removed after it has ended (and been idle for 30 minutes) or afte
 ## How a game runs
 
 1. One person taps **Host a game** and shares the four letter code. Everyone else taps **Join**.
-   Everyone enters their name and takes a photo of their face (the front camera opens on a phone, or they can choose one from their photo library).
+   Everyone enters their name and takes a photo of their face (the front camera opens on a phone, or they can choose one from their photo library) and fits it inside a circle.
    Names and photos show in the chats, like a messenger app. Photos are small, stay on the server only
    for the length of the game, and are only sent to players in the same game.
 2. The host taps **Deal the roles**. Traitors are picked at random from everyone, host included:
@@ -57,16 +57,23 @@ A game is only removed after it has ended (and been idle for 30 minutes) or afte
    * add the money the group earned in that round's missions to **the pot**, which everyone can see,
    * mark who earned a **shield**, which everyone can see. A shield only protects its holder from
      **murder** that night. Shields do not affect banishment. They clear after the night.
-   * start a timer.
    Then the host taps **Call the banishment**.
-5. **Banishment.** Everyone votes at once and locks it in. Players then tap in turn to reveal who
-   they voted for. Most votes is banished and taps to reveal Faithful or Traitor.
-   A tie means a re-vote between the tied players only, and the tied players cannot vote.
+5. **Banishment.** Every phone goes full screen. Everyone picks a name and locks it in. When all votes are in,
+   each screen says **Tap to reveal your vote**. Players tap in any order and show the table (the name and photo of
+   their choice stay on their screen until everyone has shown). Then every screen shows **The banished player is**
+   with the name and photo, and the banished player taps to reveal Faithful or Traitor (a full red or green screen).
+   A tie shows **We have a tie between** with the photos, then a re-vote starts by itself. Only the tied players are on
+   the ballot, and they cannot vote.
    If it is tied again, one of the tied players is chosen at random and banished.
-6. **Night.** The host taps **Start the night**. Everyone puts on a mask. Traitors take theirs off
-   and choose on their phones. Traitors must all choose the same thing.
-   * **Murder:** Traitors put their masks back on, then the sun rises and the victim is named.
-     Players holding a shield cannot be chosen.
+6. **Night.** The host taps **Start the night**. The host's phone says aloud "Night falls. Everyone, put on your masks and close
+   your eyes." After 20 seconds it says "Traitors, remove your masks and choose someone to murder", and only the Traitors'
+   phones change, to a red vote screen. Each Traitor sees live who the other Traitors picked and can change to match. Nothing
+   is final until every Traitor has picked the same player and everyone taps **Lock in**. When recruiting is allowed there is
+   a big **Choose to recruit** button at the bottom of that screen.
+   * **Murder:** after the lock the host's phone says "Traitors, put your masks back on" and all screens show "...". After
+     15 seconds it says "Everyone, remove your masks. There has been a murder..." and all screens show "The person murdered
+     is...". The host taps their screen to reveal the name and photo on every phone. Shielded players cannot be chosen.
+   * **No murder** (recruit, or nothing the Traitors could do): the host's phone says there has been no murder tonight.
    * **Death row** (games that began with more than 15 players): on a random night while more than 12
      players are still in (a 50% chance each eligible night, and only once per game), the Traitors choose **4 players** for death
      row instead of murdering. They may pick Traitors, even themselves, to throw suspicion. The table is
@@ -81,7 +88,9 @@ A game is only removed after it has ended (and been idle for 30 minutes) or afte
 7. **The end.** The game runs until three players are left. From five players on, roles are no
    longer revealed on banishment. A night murder only happens while 5 or more players are alive,
    so the last murder takes five to four.
-   The final three choose to end the game or vote once more.
+   The final three choose to end the game or vote once more, with the same full-screen choose, tap to reveal flow.
+   When the game ends, the players still standing each tap **Tap to reveal your role**, then everyone sees
+   **Traitors win** or **Faithful win**.
    * All three end it: if a Traitor is among them, the Traitors win, otherwise the Faithful win.
    * Any one of them votes: one player is banished, and if a Traitor is in the final two the
      Traitors win, otherwise the Faithful win.
@@ -100,7 +109,7 @@ night, 0 to 1, default 0.5).
 * Turn on **Host voice** on one phone to have it read the host's lines aloud for the whole room.
 * The host has fallback buttons for a stuck player (reveal on someone's behalf, close the vote
   early, skip the night, end the game early).
-* Money is shown in Australian dollars (A$). Enter it as `250` or `250.50`. There is an undo for the last amount.
+* Money is shown with a $ sign. Enter it as `250` or `250.50`. There is an undo for the last amount.
 * **Chats** (bottom tab, next to Game): the **Table chat** (everyone reads, only the living post), the
   **Traitors chat** (living and banished Traitors read, living Traitors post), and a **Dead chat** that
   only banished and murdered players can see and post in. Living players can tap **New chat** to start a
