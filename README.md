@@ -122,3 +122,7 @@ night, 0 to 1, default 0.5).
 Only the host's phone speaks. It starts when the host calls a banishment and stops the moment the night's murder (or death row)
 is revealed, staying quiet through the day and money announcements until the next banishment is called. Tap **Host voice** to
 turn it on or off, pick from the voices installed on that phone, and switch between a slow, deep style and a normal one.
+
+### Recorded voice
+The host's phone plays recorded clips from `public/voice/` when they exist. `VOICE-LINES.md` lists the 29 lines and the exact file
+names (`night.mp3`, `nightChoose.mp3`, ...). Any line without a file is spoken by the phone's own voice instead.

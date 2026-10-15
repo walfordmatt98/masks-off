@@ -400,7 +400,7 @@ function landing(){
 function sayCard(){
   var v=S.V;if(!v.narration)return null;
   return el('div',{class:'say'},el('span',{class:'label',text:'The Host'}),el('p',{class:'text',text:v.narration.text}),
-    (voiceOn()&&v.narration.talk)?el('div',{class:'row'},B('Read again',function(){speak(v.narration.text);},'ghost small')):null);
+    (voiceOn()&&v.narration.talk)?el('div',{class:'row'},B('Read again',function(){playLine(v.narration);},'ghost small')):null);
 }
 function voiceOn(){return !!(S.V&&S.V.you.host&&store('mo-voice')!=='0');}
 var PREFER=['Daniel','Arthur','Google UK English Male','Oliver','Aaron','Alex','Fred','Rishi','Gordon','Microsoft George','Microsoft Ryan','Microsoft Guy','Microsoft David'];
@@ -411,6 +411,25 @@ function pickVoice(){
   for(var i=0;i<PREFER.length;i++){v=all.find(function(x){return x.name.indexOf(PREFER[i])===0;});if(v)return v;}
   return null;
 }
+var AU=null,UNLOCKED=false;
+var PLAYTOKEN=0;
+function playLine(n){ // a recording when there is one, otherwise the phone's own voice. Several parts play one after another
+  var tok=++PLAYTOKEN,parts=n.parts||[{key:n.key,text:n.text}];
+  try{speechSynthesis.cancel();}catch(e){}
+  if(AU){try{AU.pause();}catch(e){}}
+  (function next(i){
+    if(tok!==PLAYTOKEN||i>=parts.length)return;
+    var pt=parts[i],used=false;
+    var go=function(){if(!used){used=true;setTimeout(function(){next(i+1);},1200);}};
+    var fb=function(){if(used)return;used=true;speak(pt.text);setTimeout(function(){next(i+1);},Math.max(2500,pt.text.length*70));};
+    if(!pt.key)return fb();
+    try{AU=AU||new Audio();AU.onerror=fb;AU.onended=go;AU.src='/voice/'+pt.key+'.mp3';var p=AU.play();if(p&&p.catch)p.catch(fb);}catch(e){fb();}
+  })(0);
+}
+document.addEventListener('pointerdown',function(){ // phones only allow sound after a tap
+  if(UNLOCKED)return;UNLOCKED=true;
+  try{AU=AU||new Audio();AU.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';var p=AU.play();if(p&&p.catch)p.catch(function(){});}catch(e){}
+},{once:true});
 function speak(t){try{
   var u=new SpeechSynthesisUtterance(t),v=pickVoice(),d=store('mo-vstyle')!=='n';
   if(v){u.voice=v;u.lang=v.lang;}
@@ -418,7 +437,7 @@ function speak(t){try{
   speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
 try{speechSynthesis.addEventListener('voiceschanged',function(){});}catch(e){}
 function voiceMenu(){
-  var ov=el('div',{class:'vmov'}),close=function(){ov.remove();syncVoiceBtn();};
+  var recMsg='Checking for recorded lines...',ov=el('div',{class:'vmov'}),close=function(){ov.remove();syncVoiceBtn();};
   function draw(){
     var all=voiceList(),cur=pickVoice(),on=voiceOn(),dram=store('mo-vstyle')!=='n';
     ov.replaceChildren(el('div',{class:'vmwin'},
@@ -426,12 +445,19 @@ function voiceMenu(){
       el('div',{class:'row'},
         B(on?'Voice: on':'Voice: off',function(){store('mo-voice',on?'0':'1');draw();}, on?'':'ghost'),
         B(dram?'Style: slow and deep':'Style: normal',function(){store('mo-vstyle',dram?'n':'d');draw();speak('Night falls. Everyone, put on your masks and close your eyes.');},'ghost')),
+      el('p',{class:'muted small',text:recMsg}),
+      B('Play a recorded sample',function(){playLine({key:'night',text:'Night falls. Everyone, put on your masks and close your eyes.'});},'ghost'),
       el('p',{class:'muted small',text:all.length?'Tap a voice to hear it. These are the voices installed on this phone, and the host phone is the only one that speaks.':'No voices found on this phone yet. Close this and try again in a moment.'}),
       el('div',{class:'vmlist'},all.map(function(x){
         return el('button',{class:'pick','aria-pressed':String(!!cur&&cur.name===x.name),onclick:function(){store('mo-vname',x.name);draw();speak('Night falls. Everyone, put on your masks and close your eyes.');}},x.name+' ('+x.lang+')');})),
       B('Done',close)));
   }
   draw();document.body.appendChild(ov);
+  fetch('/api/voice').then(function(r){return r.json();}).then(function(j){
+    var have=j.lines.filter(function(x){return x.have;}).length;
+    recMsg=have?('Recorded lines found: '+have+' of '+j.lines.length+'. Any missing line uses the phone voice below.'):'No recorded lines have been added yet, so the phone voice below is used.';
+    if(ov.parentNode)draw();
+  }).catch(function(){});
   try{speechSynthesis.onvoiceschanged=draw;}catch(e){}
 }
 function syncVoiceBtn(){$('#voiceBtn').textContent='Host voice: '+(voiceOn()?'on':'off');}
@@ -1048,7 +1074,8 @@ function onState(){
   $('#voiceBtn').textContent='Host voice: '+(voiceOn()?'on':'off');
   if(v){
     syncChats();
-    if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(voiceOn()&&v.narration.talk&&v.phase!=='lobby')speak(v.narration.text);}
+    if(!S.sawNarr){S.sawNarr=true;S.spoken=v.narration&&v.narration.id;} // a refreshed page must not repeat the last line
+    else if(v.narration&&v.narration.id!==S.spoken){S.spoken=v.narration.id;if(voiceOn()&&v.narration.talk&&v.phase!=='lobby')playLine(v.narration);}
   }
   renderGame();showTab();renderFull();
 }

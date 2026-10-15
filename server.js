@@ -79,17 +79,17 @@ const T = {
     ? 'Welcome to the round table. Among you sit the Faithful, and among you sit Traitors. Talk, accuse and defend yourselves. When the table is ready, the host will call the banishment.'
     : 'Day ' + r + ' begins. Masks are off. Study the faces around you.',
   banish: shielded => 'The time has come to choose. Vote on your phone for the player you most suspect.' +
-    (shielded.length ? ' ' + list(shielded) + (shielded.length > 1 ? ' hold shields and cannot be murdered tonight.' : ' holds a shield and cannot be murdered tonight.') : ''),
+    (shielded.length ? ' Some of you hold shields. Those players cannot be murdered tonight.' : ''),
   pot: (add, total) => 'The group has earned ' + moneyWords(add) + '. The pot now stands at ' + moneyWords(total) + '.',
-  tie: names => 'The table is split between ' + list(names) + '. Vote again. The tied players cannot vote. The others decide.',
+  tie: () => 'The table is split. Vote again. The tied players cannot vote. The others decide.',
   noVotes: () => 'No one cast a vote. No one is banished.',
   reveal: () => 'The votes are locked. When you are ready, tap your screen and show the table who you voted for.',
-  tieAnnounce: names => 'We have a tie between ' + list(names) + '.',
-  banished: n => n + ' has the most votes and is banished. ' + n + ', tap your screen and show us who you really were.',
-  banishedQuiet: n => n + ' has the most votes and is banished. From here on, roles stay hidden.',
-  banishedChance: n => 'Still split. Fate decides, and ' + n + ' is banished. ' + n + ', tap your screen and show us who you really were.',
-  banishedChanceQuiet: n => 'Still split. Fate decides, and ' + n + ' is banished. From here on, roles stay hidden.',
-  role: (n, r) => n + ' was ' + (r === 'traitor' ? 'a Traitor.' : 'Faithful.'),
+  tieAnnounce: () => 'We have a tie between...',
+  banished: () => 'The table has spoken. The banished player is... Banished player, tap your screen and show us who you really were.',
+  banishedQuiet: () => 'The table has spoken. The banished player is... From here on, roles stay hidden.',
+  banishedChance: () => 'Still split. Fate decides. The banished player is... Banished player, tap your screen and show us who you really were.',
+  banishedChanceQuiet: () => 'Still split. Fate decides. The banished player is... From here on, roles stay hidden.',
+  role: (n, r) => r === 'traitor' ? 'They were a Traitor.' : 'They were a Faithful.',
   night: () => 'Night falls. Everyone, put on your masks and close your eyes.',
   nightChoose: () => 'Traitors, remove your masks and choose someone to murder.',
   maskBack: () => 'Traitors, put your masks back on.',
@@ -97,7 +97,8 @@ const T = {
   morningKill: n => 'The murdered player is ' + n + '.',
   morningNone: () => 'Everyone, remove your masks. There has been no murder tonight. What that means, you will never know.',
   morningRow: () => 'Everyone, remove your masks. There has been no murder tonight. However, four players have been put on death row.',
-  morningRowNames: names => 'The players put on death row are ' + list(names) + '. The next murder will be one of them, unless a shield protects them.',
+  deathRowReveal: () => 'The four players on death row are...',
+  deathRowExplain: () => 'Death row is a warning. At the next murder, the Traitors may only choose from these four players. The only thing that can save you from death row is a shield.',
   final3: () => 'Three remain. Together you decide: end the game here, or vote one last time and take it to a final two. If you all choose to end it and a Traitor is among you, the Traitors win. If any of you votes, one of you leaves, and the last two decide the winner.',
   finalVote: () => 'One of you must leave. Vote on your phone.',
   finalReveal: () => 'Everyone has chosen. Tap your screen and show the table your choice.',
@@ -108,7 +109,20 @@ const T = {
   endF: () => 'No Traitor remains. The Faithful win.',
   endX: () => 'The host has called the game. Here is the truth.'
 };
-const say = (g, text) => { g.narration = { id: uid(), text, talk: !!g.talk }; };
+/* Lines the host's phone speaks. Each has a fixed wording (no names, the screens show those), so each can be a recording:
+   put the audio in public/voice/<key>.mp3 and the app plays it; with no file it falls back to the phone's own voice. */
+const VOICE_LINES = {
+  banish: T.banish([]), banishShield: T.banish(['x']), tie: T.tie(), noVotes: T.noVotes(), reveal: T.reveal(), tieAnnounce: T.tieAnnounce(),
+  banished: T.banished(), banishedQuiet: T.banishedQuiet(), banishedChance: T.banishedChance(), banishedChanceQuiet: T.banishedChanceQuiet(),
+  roleT: T.role('', 'traitor'), roleF: T.role('', 'faithful'),
+  night: T.night(), nightChoose: T.nightChoose(), maskBack: T.maskBack(), morningMurder: T.morningMurder(), morningNone: T.morningNone(), morningRow: T.morningRow(),
+  final3: T.final3(), finalVote: T.finalVote(), finalReveal: T.finalReveal(), finalEndAll: T.finalEndAll(), finalVoteOn: T.finalVoteOn(),
+  deathRowReveal: T.deathRowReveal(), deathRowExplain: T.deathRowExplain(),
+  endReveal: T.endReveal(), endT: T.endT(), endF: T.endF(), endX: T.endX()
+};
+const VOICE_KEY = {}; for (const k of Object.keys(VOICE_LINES)) VOICE_KEY[VOICE_LINES[k]] = k;
+const VOICE_DIR = path.join(__dirname, 'public', 'voice');
+const say = (g, text, parts) => { g.narration = { id: uid(), text, talk: !!g.talk, key: VOICE_KEY[text] || null, parts: parts || null }; };
 const go = (g, phase) => { g.phase = phase; g.seq++; };
 
 /* ---------- game objects ---------- */
@@ -443,7 +457,11 @@ function revealMurder(g) { // the host taps: the murder victim, or the death row
   need(pendingReveal(g), 'Not now.');
   const ev = g.lastEvent;
   g.talk = false; // after the reveal the phone stays quiet until the next banishment is called
-  if (ev.type === 'deathrow') { ev.revealed = true; say(g, T.morningRowNames(ev.ids.map(id => nameOf(g, id)))); return; }
+  if (ev.type === 'deathrow') { // announce the four, then explain death row; this is the last thing spoken until the next banishment
+    ev.revealed = true; g.talk = true;
+    say(g, T.deathRowReveal() + ' ' + T.deathRowExplain(), [{ key: 'deathRowReveal', text: T.deathRowReveal() }, { key: 'deathRowExplain', text: T.deathRowExplain() }]);
+    g.talk = false; g.narration.talk = true; return;
+  }
   const k = byId(g, ev.id);
   k.alive = false; k.deathHow = 'murdered'; leavePrivateChats(g, k);
   ev.revealed = true;
@@ -721,6 +739,24 @@ const server = http.createServer(async (req, res) => {
       const f = STATIC[url.pathname];
       res.writeHead(200, { 'Content-Type': f.type, 'Cache-Control': 'public, max-age=86400' });
       return res.end(fs.readFileSync(path.join(__dirname, 'public', f.file)));
+    }
+    if (req.method === 'GET' && url.pathname === '/api/voice') { // which recordings exist
+      return json(res, 200, { lines: Object.keys(VOICE_LINES).map(k => ({ key: k, text: VOICE_LINES[k], have: fs.existsSync(path.join(VOICE_DIR, k + '.mp3')) })) });
+    }
+    const vm = req.method === 'GET' && /^\/voice\/([a-zA-Z0-9]+)\.mp3$/.exec(url.pathname);
+    if (vm) { // the host's recorded lines, with byte ranges so iPhones will play them
+      const file = path.join(VOICE_DIR, vm[1] + '.mp3');
+      if (!VOICE_LINES[vm[1]] || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
+      const buf = fs.readFileSync(file), r = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+      const h = { 'Content-Type': 'audio/mpeg', 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=3600' };
+      if (r) {
+        const st = r[1] === '' ? Math.max(0, buf.length - Number(r[2])) : Number(r[1]), en = r[1] === '' || r[2] === '' ? buf.length - 1 : Math.min(Number(r[2]), buf.length - 1);
+        if (st > en || st >= buf.length) { res.writeHead(416, { 'Content-Range': 'bytes */' + buf.length }); return res.end(); }
+        res.writeHead(206, Object.assign(h, { 'Content-Range': 'bytes ' + st + '-' + en + '/' + buf.length, 'Content-Length': en - st + 1 }));
+        return res.end(buf.subarray(st, en + 1));
+      }
+      res.writeHead(200, Object.assign(h, { 'Content-Length': buf.length }));
+      return res.end(buf);
     }
     if (url.pathname === '/healthz') return json(res, 200, { ok: true, games: games.size });
     if (req.method === 'GET' && url.pathname === '/api/state') {
