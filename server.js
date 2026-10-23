@@ -60,7 +60,9 @@ const potTotal = g => g.pot.reduce((s, e) => s + e.cents, 0);
 const cleanText = (s, max) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /* ---------- rules ---------- */
-const traitorCount = n => n <= 7 ? 1 : n <= 11 ? 2 : 3;
+const traitorCount = n => n <= 7 ? 1 : n <= 13 ? 2 : 3;
+const RECRUIT_MIN_ALIVE = 8;   // recruiting only happens while more than 7 players are alive
+const RECRUIT_OPTIONAL_ALIVE = 12; // a 3-Traitor game that is down to 2 Traitors may recruit while 12 or more are still in
 const alive = g => g.players.filter(p => p.alive);
 const byId = (g, id) => g.players.find(p => p.id === id);
 const nameOf = (g, id) => { const p = byId(g, id); return p ? p.name : 'Someone'; };
@@ -133,7 +135,7 @@ function blankGame(code) {
     code, created: Date.now(), updated: Date.now(), hostId: null, players: [],
     phase: 'lobby', seq: 0, round: 0, narration: null, ch: blankChannels(), cn: 0,
     shields: [], pot: [], deathRow: null, votes: {}, candidates: null, rev: 0, final: false, queue: null, ballots: null, revealed: null,
-    tally: null, lastEvent: null, night: null, finalChoices: {}, banishCount: 0, startN: 0, recruitFlag: false,
+    tally: null, lastEvent: null, night: null, finalChoices: {}, banishCount: 0, startN: 0, recruitUsed: false,
     endsAt: null, winner: null, tieIds: null, autoAt: null, finalRevealed: null, finalOutcome: null, endReveal: null, clients: new Set(), pending: null
   };
 }
@@ -249,7 +251,7 @@ function newChat(g, p, b) {
 function startGame(g) {
   const n = g.players.length, t = traitorCount(n);
   shuffle(g.players.map(p => p.id)).forEach((id, i) => { byId(g, id).role = i < t ? 'traitor' : 'faithful'; });
-  g.startN = n; g.round = 0; g.banishCount = 0; g.recruitFlag = false; g.deathRow = null; g.rowDone = false;
+  g.startN = n; g.round = 0; g.banishCount = 0; g.recruitUsed = false; g.deathRow = null; g.rowDone = false;
   g.players.forEach(p => { p.ready = false; });
   go(g, 'roles'); say(g, T.deal());
 }
@@ -318,7 +320,6 @@ function banishPlayer(g, id, byChance) {
   p.alive = false; p.deathHow = 'banished'; leavePrivateChats(g, p);
   const show = !g.final && before > 5; // the player banished with six left is shown; with five left or fewer, roles stay hidden
   g.banishCount += 1;
-  if (p.role === 'traitor' && !g.final && g.startN > 16 && g.banishCount <= 3) g.recruitFlag = true;
   g.lastEvent = { type: 'banished', id, show, role: null, done: !show, chance: !!byChance };
   go(g, 'banished');
   say(g, byChance ? (show ? T.banishedChance(p.name) : T.banishedChanceQuiet(p.name)) : (show ? T.banished(p.name) : T.banishedQuiet(p.name)));
@@ -353,22 +354,25 @@ const rowAlive = g => g.deathRow ? g.deathRow.ids.filter(id => { const x = byId(
 function startNight(g) {
   const A = alive(g);
   const tr = A.filter(p => p.role === 'traitor').map(p => p.id);
-  const recruitAllowed = tr.length > 0 && ((tr.length === 1 && A.length > 7) || g.recruitFlag);
+  // recruiting: a lone Traitor MUST recruit (join or die) while more than 7 are alive; a 3-Traitor game down to two may choose to recruit,
+  // once, while 12 or more are still in
+  const forced = tr.length === 1 && A.length >= RECRUIT_MIN_ALIVE;
+  const optional = !forced && tr.length === 2 && traitorCount(g.startN) === 3 && A.length >= RECRUIT_OPTIONAL_ALIVE && !g.recruitUsed;
+  const recruitAllowed = forced || optional;
   if (g.deathRow && rowAlive(g).length === 0) g.deathRow = null; // everyone on it has since been banished
   const usedRow = !!g.deathRow;
   const rowIds = usedRow ? rowAlive(g) : null; // when a death row is in force, murder can only come from it
   // on a random night (and never while a death row is waiting to be used) the Traitors pick the death row instead of murdering
-  const kind = (!usedRow && !g.rowDone && tr.length > 0 && g.startN > DEATH_ROW_MIN_START && A.length > DEATH_ROW_MIN_ALIVE && rnd(100) < Math.round(ROW_CHANCE * 100)) ? 'row' : 'murder';
+  const kind = (!forced && !usedRow && !g.rowDone && tr.length > 0 && g.startN > DEATH_ROW_MIN_START && A.length > DEATH_ROW_MIN_ALIVE && rnd(100) < Math.round(ROW_CHANCE * 100)) ? 'row' : 'murder';
   // shields protect from murder only: shielded players cannot be chosen as a murder target
   const murderable = A.filter(p => p.role !== 'traitor' && !g.shields.includes(p.id) && (!rowIds || rowIds.includes(p.id)));
-  const canMurder = kind === 'row' ? true : murderable.length > 0;
+  const canMurder = kind === 'row' ? true : murderable.length > 0; // for a forced recruit this means "there is somebody they can recruit"
   const fake = tr.length === 0; // no Traitor left: the night still runs on the same clock so the table cannot tell
-  const noTarget = kind === 'murder' && !canMurder; // everyone is shielded: the Traitors still go through the motions
+  const noTarget = kind === 'murder' && !canMurder && !forced; // everyone is shielded: the Traitors still go through the motions
   g.night = {
     step: 'masks', kind, usedRow, rowIds, traitors: tr, picks: {}, locks: {}, decision: null,
-    recruitAllowed, canMurder, noTarget, fake, nextAt: Date.now() + MASK_WAIT()
+    recruitAllowed, forced, canMurder, noTarget, fake, nextAt: Date.now() + MASK_WAIT()
   };
-  g.recruitFlag = false;
   go(g, 'night'); say(g, T.night());
 }
 /* timed steps of the night; called every second */
@@ -403,6 +407,7 @@ function nightPick(g, p, b) {
     n.picks[p.id] = { action: 'row', targets: ids.slice().sort() };
   } else {
     if (b.action === 'recruit') need(n.recruitAllowed, 'Recruiting is not available tonight.');
+    if (n.forced) need(b.action === 'recruit', 'You have to recruit tonight.'); // but anyone still alive can be chosen
     if (b.action === 'murder') need(n.kind === 'murder', 'Tonight you choose the death row, not a murder.');
     const t = byId(g, b.target);
     need(t && t.alive && t.role !== 'traitor', 'Pick a player who is not a Traitor.');
@@ -431,20 +436,25 @@ function nightLock(g, p) {
     g.seq++; say(g, T.maskBack());
   }
 }
+/* A forced recruit has to join or die only if they could have been murdered tonight: no shield, and on death row when one is in force.
+   Everyone else the lone Traitor picks just chooses between joining and staying Faithful. */
+const dieApplies = (g, n, id) => !!n.forced && !g.shields.includes(id) && (!n.rowIds || n.rowIds.includes(id));
 function recruitReply(g, p, accept) {
   const n = g.night;
   need(g.phase === 'night' && n && n.step === 'recruit' && n.decision.target === p.id, 'Not now.');
   if (accept) {
-    p.role = 'traitor';
+    p.role = 'traitor'; p.recruited = true;
     addMsg(g, g.ch.traitors, { sys: true, text: p.name + ' has joined the Traitors.' });
   }
-  n.decision = { action: 'recruit', target: p.id, done: true };
+  if (!n.forced) g.recruitUsed = true; // the Traitors' one chosen recruit has been spent, whatever the answer
+  n.decision = { action: 'recruit', target: p.id, done: true, accepted: !!accept, die: dieApplies(g, n, p.id) };
   finishNight(g);
 }
 function finishNight(g) {
   const n = g.night, d = n && n.decision;
   let murdered = null, row = null;
   if (d && d.action === 'murder') murdered = byId(g, d.target); // dies when the host reveals it
+  if (d && d.action === 'recruit' && d.done && !d.accepted && d.die) murdered = byId(g, d.target); // refused the lone Traitor: join or die
   if (n && n.usedRow) g.deathRow = null; // the death row is spent after the night it applies to
   if (d && d.action === 'row') { g.deathRow = { ids: d.targets.slice(), round: g.round }; g.rowDone = true; /* only once per game */ row = g.deathRow.ids; }
   g.lastEvent = murdered ? { type: 'murdered', id: murdered.id, revealed: false } : row ? { type: 'deathrow', ids: row.slice(), revealed: false } : { type: 'none' };
@@ -597,7 +607,7 @@ function view(g, me) {
     you: { id: me.id, name: me.name, role: me.role, alive: me.alive, host: me.id === g.hostId, deathHow: me.deathHow },
     players: g.players.map(p => ({
       id: p.id, name: p.name, alive: p.alive, host: p.id === g.hostId, shield: g.shields.includes(p.id), row: row.includes(p.id),
-      deathHow: p.deathHow, pic: p.photo ? 1 : 0, role: (ended || p.roleShown) ? p.role : null, ready: p.ready
+      deathHow: p.deathHow, pic: p.photo ? 1 : 0, role: (ended || p.roleShown) ? p.role : null, recruited: ended && !!p.recruited, ready: p.ready
     })),
     narration: g.narration, endsAt: null, winner: g.winner, startN: g.startN,
     traitorTotal: traitorCount(g.players.length),
@@ -630,12 +640,12 @@ function view(g, me) {
     if (n.traitors.includes(me.id) && !n.fake && (n.step === 'choose' || n.step === 'maskBack' || n.step === 'recruit')) {
       v.night.traitor = {
         step: n.step, kind: n.kind, rowSize: DEATH_ROW_SIZE, rowIds: n.rowIds,
-        recruitAllowed: n.recruitAllowed, canMurder: n.canMurder, needed: n.traitors.length,
+        recruitAllowed: n.recruitAllowed, forced: !!n.forced, canMurder: n.canMurder, needed: n.traitors.length,
         picks: n.traitors.filter(id => n.picks[id]).map(id => Object.assign({ id }, n.picks[id])), noTarget: !!n.noTarget,
         locks: Object.keys(n.locks), agreed: !!agreed(n), traitors: n.traitors, decision: n.decision
       };
     } else if (n.step === 'recruit' && n.decision && n.decision.target === me.id && !n.decision.done) {
-      v.night.recruit = true;
+      v.night.recruit = true; v.night.recruitForced = dieApplies(g, n, me.id);
     }
   }
   return v;

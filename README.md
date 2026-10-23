@@ -51,7 +51,7 @@ A game is only removed after it has ended (and been idle for 30 minutes) or afte
    Names and photos show in the chats, like a messenger app. Photos are small, stay on the server only
    for the length of the game, and are only sent to players in the same game.
 2. The host taps **Deal the roles**. Traitors are picked at random from everyone, host included:
-   1 to 7 players = 1 Traitor, 8 to 11 = 2, 12 or more = 3.
+   4 to 7 players = 1 Traitor, 8 to 13 = 2, 14 or more = 3.
 3. Each player gets somewhere private, taps to see their role, then taps to hide it.
 4. **Day.** Talk, and run your missions in person. Before calling the banishment the host can:
    * add the money the group earned in that round's missions to **the pot**, which everyone can see,
@@ -79,12 +79,16 @@ A game is only removed after it has ended (and been idle for 30 minutes) or afte
      row instead of murdering. They may pick Traitors, even themselves, to throw suspicion. The table is
      told who is on death row, and no one dies. On the **next** murder the Traitors may only choose from
      the living players on death row (shielded players still cannot be chosen). The row lasts one night, and a game only ever has one death row.
-   * **Recruit:** Traitors put their masks back on and one taps the chosen player on the shoulder.
-     That player takes their mask off and joins or declines. Everyone is told no one died.
-     A recruit who accepts appears in the Traitors chat.
-   Recruiting is offered only after a Traitor is banished early (the game began with more than 16
-   players and the banishment was one of the first three, that night only), or whenever one Traitor
-   is left with more than 7 players alive.
+   * **Recruit:** the Traitors choose a player on the same red screen. The recruited player is asked privately to join or
+     decline, and everyone else is told there was no murder. A recruit who accepts appears in The Traitors chat, and shows as
+     "Traitor (Recruited)" in the final list of roles.
+     * *Optional:* in a game that began with 14 or more players (3 Traitors), once a Traitor has gone and 2 are left, the
+       Traitors may choose to recruit (the **Choose to recruit** button) on any night while 12 or more players are still in. It
+       can be used once. The recruit may join or stay Faithful.
+     * *Forced:* when only 1 Traitor is left and more than 7 players are alive, they cannot murder. They must recruit, and may
+       pick anyone still alive. If the player is not shielded (and is on death row, when one is in force) they must join or die;
+       a death is revealed like a murder. Anyone else (shielded, or off the death row) just chooses to join or stay Faithful.
+       This repeats every night until someone joins, or until 7 or fewer players are alive, when recruiting stops.
 7. **The end.** The game runs until three players are left. From five players on, roles are no
    longer revealed on banishment. A night murder only happens while 5 or more players are alive,
    so the last murder takes five to four.
